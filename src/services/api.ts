@@ -1,55 +1,66 @@
 import { Video, Comment, CreatorAnalytics } from '../types';
 import { MOCK_VIDEOS } from '../constants/mockData';
 
-// Simulated API service layer. Ready for integration with NestJS/PostgreSQL backend endpoints.
+// ─── Simulated notification store ─────────────────────────────────────────────
+let notificationBadge = 3;
+
+// ─── In-memory watchlist ────────────────────────────────────────────────────
+const watchlist = new Set<string>();
+
+// ─── Trending overrides (hot rank simulation) ─────────────────────────────────
+const TRENDING_RANK: Record<string, number> = {
+  f3: 1, f2: 2, f7: 3, f1: 4, f6: 5,
+};
+
+// Simulated API service layer. Ready for integration with NestJS/PostgreSQL backend.
 export const apiService = {
   getVideos: async (tier?: 'FREE' | 'BASIC' | 'PREMIUM'): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 280));
     const list = MOCK_VIDEOS.filter((v) => !v.isReel && !v.isLive);
-    if (tier) {
-      return list.filter((v) => v.tier === tier);
-    }
-    return list;
+    // Sort by trending rank first
+    const sorted = [...list].sort((a, b) => {
+      const ra = TRENDING_RANK[a.id] ?? 99;
+      const rb = TRENDING_RANK[b.id] ?? 99;
+      return ra - rb;
+    });
+    if (tier) return sorted.filter((v) => v.tier === tier);
+    return sorted;
   },
 
   getReels: async (): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 380));
     return MOCK_VIDEOS.filter((v) => v.isReel);
   },
 
   getLiveStreams: async (): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 250));
     return MOCK_VIDEOS.filter((v) => v.isLive);
   },
 
   getVideoById: async (id: string): Promise<Video | undefined> => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 180));
     return MOCK_VIDEOS.find((v) => v.id === id);
   },
 
-  // Collaborative/Content-based AI recommendation system simulation
+  // Collaborative + content-based AI recommendation
   getRecommendedVideos: async (userInterestGenre = 'Fantasy'): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 420));
     const films = MOCK_VIDEOS.filter((v) => !v.isReel && !v.isLive);
-    
-    // Sort films so that matching genres come first (content-based), followed by total views (popularity)
     return [...films].sort((a, b) => {
       const aMatch = a.genre.toLowerCase() === userInterestGenre.toLowerCase() ? 1 : 0;
       const bMatch = b.genre.toLowerCase() === userInterestGenre.toLowerCase() ? 1 : 0;
-      if (aMatch !== bMatch) {
-        return bMatch - aMatch;
-      }
+      if (aMatch !== bMatch) return bMatch - aMatch;
       return b.views - a.views;
     });
   },
 
-  // Advanced search with AI/NLP filter parsing simulation
+  // Full-text + metadata search with duration filter
   searchVideos: async (
     query: string,
-    filters?: { genre?: string; rating?: string; duration?: 'short' | 'medium' | 'long' }
+    filters?: { genre?: string; rating?: string; duration?: 'short' | 'medium' | 'long' },
   ): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    let results = MOCK_VIDEOS.filter((v) => !v.isReel); // standard videos + live
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    let results = MOCK_VIDEOS.filter((v) => !v.isReel);
 
     if (query.trim()) {
       const lower = query.toLowerCase();
@@ -60,7 +71,9 @@ export const apiService = {
           v.genre.toLowerCase().includes(lower) ||
           v.creatorName.toLowerCase().includes(lower) ||
           (v.director && v.director.toLowerCase().includes(lower)) ||
-          (v.cast && v.cast.some((actor) => actor.toLowerCase().includes(lower)))
+          (v.cast && v.cast.some((actor) => actor.toLowerCase().includes(lower))) ||
+          (v.year && String(v.year).includes(lower)) ||
+          (v.rating && v.rating.toLowerCase().includes(lower)),
       );
     }
 
@@ -77,10 +90,16 @@ export const apiService = {
       });
     }
 
-    return results;
+    // Sort by relevance: exact title match first, then by views
+    return results.sort((a, b) => {
+      const aExact = a.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0;
+      const bExact = b.title.toLowerCase().includes(query.toLowerCase()) ? 1 : 0;
+      if (aExact !== bExact) return bExact - aExact;
+      return b.views - a.views;
+    });
   },
 
-  // Comments Mock API
+  // Comments
   getCommentsByVideoId: async (videoId: string): Promise<Comment[]> => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     return [
@@ -101,7 +120,7 @@ export const apiService = {
             userId: 'c-blender',
             username: 'Blender Foundation',
             avatarUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80',
-            content: 'Thank you! It was rendered using path-tracing cycles at 4K resolution with 2048 samples per pixel.',
+            content: 'Thank you! Rendered using path-tracing cycles at 4K with 2048 samples per pixel.',
             likes: 48,
             createdAt: '2026-06-08T15:00:00Z',
           },
@@ -113,15 +132,35 @@ export const apiService = {
         userId: 'u3',
         username: 'movie_buff_254',
         avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
-        content: 'Loved the plot twists! Will there be a sequel for this?',
-        likes: 32,
-        createdAt: '2026-06-08T18:10:00Z',
+        content: 'Loved every minute of this. The cinematography rivals Hollywood blockbusters. 🔥',
+        likes: 87,
+        createdAt: '2026-06-09T10:15:00Z',
+      },
+      {
+        id: 'c3',
+        videoId,
+        userId: 'u4',
+        username: 'nairobi_cinephile',
+        avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80',
+        content: 'Would love to see a sequel or a director\'s cut. This world-building is incredible.',
+        likes: 52,
+        createdAt: '2026-06-10T08:40:00Z',
+      },
+      {
+        id: 'c4',
+        videoId,
+        userId: 'u5',
+        username: 'streamjunkie_ke',
+        avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80',
+        content: 'Finally something worth watching on a streaming platform. 10/10.',
+        likes: 38,
+        createdAt: '2026-06-11T19:22:00Z',
       },
     ];
   },
 
   addComment: async (videoId: string, userId: string, username: string, avatarUrl: string, content: string): Promise<Comment> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 250));
     return {
       id: `c-new-${Date.now()}`,
       videoId,
@@ -134,32 +173,32 @@ export const apiService = {
     };
   },
 
-  // Creator Dashboard Analytics API Mock
+  // Creator Dashboard Analytics
   getCreatorAnalytics: async (creatorId: string): Promise<CreatorAnalytics> => {
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 600));
     return {
       subscribersCount: 124980,
-      totalViews: 9403920,
-      monthlyRevenue: 8430.5,
+      totalViews: 9_403_920,
+      monthlyRevenue: 8430.50,
       watchTimeHours: 482090,
       videoPerformance: [
-        { videoId: 'f1', title: 'Sintel - The Awakening', views: 4520930, earnings: 4050.2 },
-        { videoId: 'f2', title: 'Tears of Steel - Sci-Fi Thriller', views: 3209340, earnings: 2880.3 },
-        { videoId: 'f3', title: 'Big Buck Bunny - Forest Chronicles', views: 1673650, earnings: 1500.0 },
+        { videoId: 'f1', title: 'Inception', views: 4_520_930, earnings: 4050.20 },
+        { videoId: 'f2', title: 'Interstellar', views: 3_209_340, earnings: 2880.30 },
+        { videoId: 'f3', title: 'The Dark Knight', views: 1_673_650, earnings: 1500.00 },
       ],
     };
   },
 
-  // Creator Video Upload Mock API
+  // Creator Video Upload
   uploadVideo: async (
     title: string,
     description: string,
     genre: string,
     tier: 'FREE' | 'BASIC' | 'PREMIUM',
     videoFileUri: string,
-    thumbnailFileUri: string
+    thumbnailFileUri: string,
   ): Promise<Video> => {
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate file transfer delay
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     return {
       id: `f-user-${Date.now()}`,
       title,
@@ -179,5 +218,50 @@ export const apiService = {
       tier,
       subtitles: [],
     };
+  },
+
+  // ── Watchlist API ──────────────────────────────────────────────────────────
+  getWatchlist: async (): Promise<Video[]> => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return MOCK_VIDEOS.filter((v) => watchlist.has(v.id));
+  },
+
+  addToWatchlist: async (videoId: string): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    watchlist.add(videoId);
+  },
+
+  removeFromWatchlist: async (videoId: string): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    watchlist.delete(videoId);
+  },
+
+  isInWatchlist: (videoId: string): boolean => watchlist.has(videoId),
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  getNotifications: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return [
+      { id: 'n1', type: 'new_release', title: 'New Release', body: 'Dune: Part Three drops tomorrow!', read: false, timestamp: '2026-06-18T06:00:00Z' },
+      { id: 'n2', type: 'subscription', title: 'Subscription Renewed', body: 'Your Premium plan was renewed for $14.99.', read: false, timestamp: '2026-06-17T12:00:00Z' },
+      { id: 'n3', type: 'live', title: 'Cyber Studios is Live', body: 'Your subscribed creator just went live!', read: true, timestamp: '2026-06-16T20:00:00Z' },
+    ];
+  },
+
+  getNotificationBadge: (): number => notificationBadge,
+
+  markNotificationsRead: async (): Promise<void> => {
+    notificationBadge = 0;
+  },
+
+  // ── Trending Charts ─────────────────────────────────────────────────────────
+  getTrendingChart: async (): Promise<{ rank: number; video: Video; change: 'up' | 'down' | 'new' }[]> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const films = MOCK_VIDEOS.filter((v) => !v.isReel && !v.isLive);
+    return films.slice(0, 10).map((v, i) => ({
+      rank: i + 1,
+      video: v,
+      change: i < 3 ? 'up' : i < 6 ? 'new' : 'down',
+    }));
   },
 };

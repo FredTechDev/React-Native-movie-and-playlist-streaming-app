@@ -1,6 +1,6 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Enhanced Design System for Netstream — Production-Grade Video Platform
+ * Fully harmonized color palette with cinematic dark mode feel.
  */
 
 import '@/global.css';
@@ -9,18 +9,28 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0A0A0F',
+    background: '#F8F8FC',
+    backgroundElement: '#EDEEF3',
+    backgroundSelected: '#DDDFE8',
+    textSecondary: '#5A5E72',
+    accent: '#E50914',
+    accentGold: '#E1AD01',
+    accentGreen: '#00C853',
+    surface: '#FFFFFF',
+    border: 'rgba(0,0,0,0.08)',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F5F5F7',
+    background: '#0A0A0F',
+    backgroundElement: '#141418',
+    backgroundSelected: '#1E1E25',
+    textSecondary: '#8A8FA8',
+    accent: '#E50914',
+    accentGold: '#E1AD01',
+    accentGreen: '#00C853',
+    surface: '#141418',
+    border: 'rgba(255,255,255,0.06)',
   },
 } as const;
 
@@ -28,13 +38,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -61,5 +67,38 @@ export const Spacing = {
   six: 64,
 } as const;
 
+export const Radius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  xxl: 24,
+  full: 9999,
+} as const;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// Shadow presets for cards & modals
+export const Shadows = {
+  card: Platform.select({
+    ios: {
+      shadowColor: '#000000',
+      shadowOpacity: 0.45,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 12,
+    },
+    android: { elevation: 8 },
+    default: {},
+  }) || {},
+  subtle: Platform.select({
+    ios: {
+      shadowColor: '#000000',
+      shadowOpacity: 0.2,
+      shadowOffset: { width: 0, height: 2 },
+      shadowRadius: 6,
+    },
+    android: { elevation: 3 },
+    default: {},
+  }) || {},
+};

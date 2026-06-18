@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Image, Pressable, ScrollView, TextInput, useColorScheme, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet, View, Image, Pressable, ScrollView,
+  TextInput, useColorScheme, ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { 
-  User as UserIcon, Shield, CreditCard, Laptop, LogOut, Check, 
-  Smartphone, ShieldCheck, ToggleLeft, ToggleRight, Sparkles, Film, Play 
+import {
+  User as UserIcon, Shield, CreditCard, Laptop, LogOut, Check,
+  Smartphone, ShieldCheck, ToggleLeft, ToggleRight, Sparkles, Film,
+  Play, Bell, Globe, ChevronRight, Star, Award, Download, Clock,
 } from 'lucide-react-native';
 
 import { ThemedText } from '../components/themed-text';
@@ -15,6 +19,16 @@ import { useDownloadStore } from '../store/useDownloadStore';
 import { SUBSCRIPTION_PLANS, MOCK_VIDEOS } from '../constants/mockData';
 import { SubscriptionPlan, UserRole } from '../types';
 
+type PayMethod = 'STRIPE' | 'PAYPAL' | 'MPESA' | 'APPLE_PAY' | 'GOOGLE_PAY';
+
+const PLAN_COLORS: Record<string, string> = {
+  FREE: '#555',
+  BASIC: '#1565c0',
+  PREMIUM: '#e1ad01',
+  FAMILY: '#7b1fa2',
+  STUDENT: '#00897b',
+};
+
 export default function ProfileScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
@@ -25,6 +39,10 @@ export default function ProfileScreen() {
   const { tasks } = useDownloadStore();
 
   const downloadedTasks = Object.values(tasks).filter((t) => t.status === 'COMPLETED');
+  const totalDownloadedMB = Math.round(
+    Object.values(tasks).filter((t) => t.status === 'COMPLETED')
+      .reduce((acc, t) => acc + t.sizeBytes, 0) / (1024 * 1024)
+  );
 
   const getPoster = (videoId: string, fallbackUrl: string) => {
     const video = MOCK_VIDEOS.find((v) => v.id === videoId);
@@ -35,18 +53,13 @@ export default function ProfileScreen() {
   const [activeBiometrics, setActiveBiometrics] = useState(user?.biometricsEnabled || false);
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'PAYPAL' | 'MPESA' | 'APPLE_PAY' | 'GOOGLE_PAY'>('STRIPE');
+  const [paymentMethod, setPaymentMethod] = useState<PayMethod>('STRIPE');
   const [phoneMpesa, setPhoneMpesa] = useState('');
   const [purchasing, setPurchasing] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     router.replace('/(auth)/login');
-  };
-
-  const handleMfaToggle = () => {
-    setActiveMfa(!activeMfa);
-    alert(`MFA verification setting updated!`);
   };
 
   const handleBiometricToggle = async () => {
@@ -64,12 +77,12 @@ export default function ProfileScreen() {
     if (!selectedPlan) return;
     setPurchasing(true);
     try {
-      const success = await purchasePlan(selectedPlan, paymentMethod, { 
-        phoneNumber: paymentMethod === 'MPESA' ? phoneMpesa : undefined 
+      const success = await purchasePlan(selectedPlan, paymentMethod, {
+        phoneNumber: paymentMethod === 'MPESA' ? phoneMpesa : undefined,
       });
       if (success) {
         setShowBillingModal(false);
-        alert(`Successfully upgraded to ${selectedPlan} Plan!`);
+        alert(`✅ Successfully upgraded to ${selectedPlan} Plan!`);
       }
     } catch (e: any) {
       alert(e.message || 'Payment processing error');
@@ -79,49 +92,72 @@ export default function ProfileScreen() {
   };
 
   const triggerCancel = async () => {
-    if (confirm('Cancel your auto-renewing subscription? You will lose premium access.')) {
+    if (confirm('Cancel your auto-renewing subscription? You will lose premium access at period end.')) {
       await cancelSubscription();
-      alert('Subscription cancelled.');
+      alert('Subscription cancelled. You have access until the end of this billing period.');
     }
   };
 
+  const planColor = PLAN_COLORS[subscription.plan] || '#555';
+
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* User Card Header */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         {user ? (
           <>
-            <ThemedView type="backgroundElement" style={styles.userHeaderCard}>
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+            {/* ── User Hero Card ─────────────────────────────────── */}
+            <View style={styles.userHeroCard}>
+              <View style={styles.avatarWrapper}>
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+                <View style={[styles.planRing, { borderColor: planColor }]} />
+              </View>
               <View style={styles.userMeta}>
-                <ThemedText type="title">{user.displayName}</ThemedText>
-                <ThemedText type="small" style={{ color: colors.textSecondary }}>{user.email}</ThemedText>
-                
-                {/* Role Indicator Badge */}
-                <View style={styles.roleBadgeContainer}>
+                <ThemedText type="title" style={styles.displayName}>{user.displayName}</ThemedText>
+                <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 12 }}>{user.email}</ThemedText>
+                <View style={styles.badgeRow}>
                   <View style={[styles.roleBadge, { backgroundColor: '#e50914' }]}>
-                    <ThemedText type="code" style={styles.roleBadgeText}>{user.role}</ThemedText>
+                    <ThemedText type="code" style={styles.badgeText}>{user.role}</ThemedText>
                   </View>
                   {subscription.plan !== 'FREE' && (
-                    <View style={[styles.roleBadge, { backgroundColor: '#e1ad01' }]}>
-                      <ThemedText type="code" style={styles.roleBadgeText}>{subscription.plan} SUBSCRIBER</ThemedText>
+                    <View style={[styles.roleBadge, { backgroundColor: planColor }]}>
+                      <Star size={8} color="#fff" fill="#fff" />
+                      <ThemedText type="code" style={styles.badgeText}>{subscription.plan}</ThemedText>
                     </View>
                   )}
                 </View>
               </View>
-            </ThemedView>
+            </View>
 
-            {/* My Movie Box (Offline Locker) */}
-            <ThemedView type="backgroundElement" style={styles.movieBoxCard}>
-              <View style={styles.movieBoxHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Film size={18} color="#e50914" />
-                  <ThemedText type="smallBold" style={{ fontSize: 16 }}>My Movie Box</ThemedText>
-                </View>
-                <Pressable onPress={() => router.push('/downloads')}>
-                  <ThemedText type="code" style={{ color: '#e50914', fontWeight: 'bold', fontSize: 11 }}>
-                    Manage Box
-                  </ThemedText>
+            {/* ── Stats Strip ─────────────────────────────────────── */}
+            <View style={[styles.statsStrip, { backgroundColor: colors.backgroundElement }]}>
+              <View style={styles.statCell}>
+                <Download size={16} color="#e50914" />
+                <ThemedText type="smallBold" style={styles.statNum}>{downloadedTasks.length}</ThemedText>
+                <ThemedText type="code" style={[styles.statLabel, { color: colors.textSecondary }]}>Downloads</ThemedText>
+              </View>
+              <View style={[styles.statDivider, { backgroundColor: colors.border || '#333' }]} />
+              <View style={styles.statCell}>
+                <Clock size={16} color="#e1ad01" />
+                <ThemedText type="smallBold" style={styles.statNum}>{totalDownloadedMB}MB</ThemedText>
+                <ThemedText type="code" style={[styles.statLabel, { color: colors.textSecondary }]}>Stored</ThemedText>
+              </View>
+              <View style={[styles.statDivider, { backgroundColor: colors.border || '#333' }]} />
+              <View style={styles.statCell}>
+                <Award size={16} color="#00c853" />
+                <ThemedText type="smallBold" style={styles.statNum}>{subscription.plan}</ThemedText>
+                <ThemedText type="code" style={[styles.statLabel, { color: colors.textSecondary }]}>Plan</ThemedText>
+              </View>
+            </View>
+
+            {/* ── My Movie Box ────────────────────────────────────── */}
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeading}>
+                <Film size={18} color="#e50914" />
+                <ThemedText type="smallBold" style={styles.cardTitle}>My Movie Box</ThemedText>
+                <Pressable onPress={() => router.push('/downloads')} style={styles.cardAction}>
+                  <ThemedText type="code" style={{ color: '#e50914', fontSize: 11, fontWeight: '700' }}>Manage</ThemedText>
+                  <ChevronRight size={12} color="#e50914" />
                 </Pressable>
               </View>
 
@@ -133,273 +169,234 @@ export default function ProfileScreen() {
                     return (
                       <Pressable
                         key={task.id}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/watch/[id]',
-                            params: { id: task.videoId, isOffline: 'true', localUri: task.localUri || '' },
-                          } as any)
-                        }
-                        style={styles.shelfMovieCard}
+                        onPress={() => router.push({ pathname: '/watch/[id]', params: { id: task.videoId, isOffline: 'true', localUri: task.localUri || '' } } as any)}
+                        style={styles.shelfCard}
                       >
-                        <View style={styles.shelfPosterContainer}>
-                          <Image source={{ uri: poster }} style={styles.shelfPoster} />
+                        <View style={styles.shelfPoster}>
+                          <Image source={{ uri: poster }} style={styles.shelfPosterImg} />
                           <View style={styles.offlineTag}>
-                            <Check size={8} color="#000000" strokeWidth={4} />
+                            <Check size={7} color="#000" strokeWidth={4} />
                             <ThemedText type="code" style={styles.offlineTagText}>OFFLINE</ThemedText>
                           </View>
                           <View style={styles.shelfPlayOverlay}>
-                            <Play size={16} color="#ffffff" fill="#ffffff" />
+                            <Play size={14} color="#fff" fill="#fff" />
                           </View>
                         </View>
-                        <ThemedText type="smallBold" numberOfLines={1} style={styles.shelfMovieTitle}>
+                        <ThemedText type="smallBold" numberOfLines={1} style={styles.shelfTitle}>
                           {task.title}
                         </ThemedText>
-                        <ThemedText type="code" style={styles.shelfMovieMeta}>
-                          {videoDetail?.year || 2026} • {videoDetail?.genre || 'Movie'}
+                        <ThemedText type="code" style={[styles.shelfMeta, { color: colors.textSecondary }]}>
+                          {videoDetail?.year || 2026} · {videoDetail?.genre || 'Movie'}
                         </ThemedText>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
               ) : (
-                <View style={styles.emptyShelfContainer}>
-                  <Film size={40} color={colors.textSecondary} style={{ opacity: 0.5 }} />
-                  <ThemedText type="smallBold" style={{ color: colors.textSecondary, fontSize: 13 }}>
-                    Your Digital Movie Box is empty
+                <View style={styles.emptyShelf}>
+                  <Film size={38} color={colors.textSecondary} style={{ opacity: 0.4 }} />
+                  <ThemedText type="smallBold" style={{ color: colors.textSecondary }}>Your Movie Box is empty</ThemedText>
+                  <ThemedText type="code" style={{ color: colors.textSecondary, textAlign: 'center', fontSize: 11 }}>
+                    Download films & series for offline watching.
                   </ThemedText>
-                  <ThemedText type="code" style={{ color: colors.textSecondary, textAlign: 'center', marginHorizontal: 20, fontSize: 10 }}>
-                    Download movies to watch anywhere offline with zero cellular data.
-                  </ThemedText>
-                  <Pressable onPress={() => router.push('/explore')} style={styles.discoverBtn}>
-                    <ThemedText type="code" style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 11 }}>
-                      Discover Movies
-                    </ThemedText>
+                  <Pressable onPress={() => router.push('/explore')} style={styles.emptyShelfBtn}>
+                    <ThemedText type="code" style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>Browse Content</ThemedText>
                   </Pressable>
                 </View>
               )}
             </ThemedView>
-          </>
-        ) : (
-          <ThemedView type="backgroundElement" style={styles.guestCard}>
-            <UserIcon size={36} color={colors.textSecondary} />
-            <ThemedText type="smallBold">You are browsing as Guest</ThemedText>
-            <Pressable onPress={() => router.push('/(auth)/login')} style={styles.loginBtn}>
-              <ThemedText type="smallBold" style={{ color: '#ffffff' }}>Sign In / Sign Up</ThemedText>
-            </Pressable>
-          </ThemedView>
-        )}
 
-        {/* Developer Sandbox - Toggle User Roles */}
-        {user && (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <View style={styles.cardHeading}>
-              <Shield size={18} color={colors.textSecondary} />
-              <ThemedText type="smallBold">Sandbox (Simulator Settings)</ThemedText>
-            </View>
-            <ThemedText type="small" style={{ color: colors.textSecondary, marginBottom: 8 }}>
-              Change mock security groups to test moderation panels or creator studios:
-            </ThemedText>
-            <View style={styles.roleRow}>
-              {(['USER', 'CREATOR', 'MODERATOR', 'ADMIN'] as UserRole[]).map((role) => (
-                <Pressable
-                  key={role}
-                  onPress={() => updateRole(role)}
-                  style={[
-                    styles.roleToggleBtn,
-                    user.role === role && styles.roleToggleBtnActive,
-                    { backgroundColor: colors.backgroundSelected }
-                  ]}
-                >
-                  <ThemedText type="code" style={{ color: user.role === role ? '#ffffff' : colors.textSecondary }}>
-                    {role}
+            {/* ── Subscription & Billing ─────────────────────────── */}
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeading}>
+                <CreditCard size={18} color={colors.textSecondary} />
+                <ThemedText type="smallBold" style={styles.cardTitle}>Subscription & Billing</ThemedText>
+              </View>
+
+              <View style={[styles.activePlanBanner, { borderColor: planColor }]}>
+                <View style={[styles.planColorDot, { backgroundColor: planColor }]} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="smallBold" style={{ fontSize: 14 }}>
+                    {subscription.plan === 'FREE' ? 'Free Plan' : `${subscription.plan} Plan`}
                   </ThemedText>
+                  <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>
+                    {subscription.status} · Renews {new Date(subscription.expiresAt).toLocaleDateString()}
+                  </ThemedText>
+                </View>
+                {subscription.plan !== 'FREE' && (
+                  <Pressable onPress={triggerCancel}>
+                    <ThemedText type="code" style={{ color: '#f44336', fontSize: 11 }}>Cancel</ThemedText>
+                  </Pressable>
+                )}
+              </View>
+
+              <ThemedText type="smallBold" style={{ marginTop: 6, fontSize: 12 }}>Upgrade Plan</ThemedText>
+              {SUBSCRIPTION_PLANS.filter((p) => p.id !== subscription.plan).map((plan) => (
+                <Pressable key={plan.id} onPress={() => triggerUpgrade(plan.id as SubscriptionPlan)} style={[styles.planCard, { borderColor: PLAN_COLORS[plan.id] || '#333' }]}>
+                  <View style={styles.planCardLeft}>
+                    <View style={[styles.planDot, { backgroundColor: PLAN_COLORS[plan.id] }]} />
+                    <View>
+                      <ThemedText type="smallBold" style={{ fontSize: 13 }}>{plan.name}</ThemedText>
+                      <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
+                        {plan.features[0]}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.planCardRight}>
+                    <ThemedText type="smallBold" style={{ color: PLAN_COLORS[plan.id], fontSize: 14 }}>
+                      ${plan.price}
+                    </ThemedText>
+                    <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 9 }}>/mo</ThemedText>
+                  </View>
                 </Pressable>
               ))}
-            </View>
-          </ThemedView>
-        )}
+            </ThemedView>
 
-        {/* Subscription Plan billing Section */}
-        {user && (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <View style={styles.cardHeading}>
-              <CreditCard size={18} color={colors.textSecondary} />
-              <ThemedText type="smallBold">Monetization & Subscriptions</ThemedText>
-            </View>
-
-            <View style={styles.activePlanSummary}>
-              <ThemedText type="small">
-                Current Plan:{' '}
-                <ThemedText type="smallBold" style={{ color: subscription.plan === 'FREE' ? colors.text : '#e1ad01' }}>
-                  {subscription.plan}
-                </ThemedText>
-              </ThemedText>
-              <ThemedText type="code" style={{ color: colors.textSecondary }}>
-                Status: {subscription.status} • Expires: {new Date(subscription.expiresAt).toLocaleDateString()}
-              </ThemedText>
-
-              {subscription.plan !== 'FREE' && (
-                <Pressable onPress={triggerCancel} style={styles.cancelLink}>
-                  <ThemedText type="code" style={{ color: '#f44336' }}>Cancel Auto-Renew</ThemedText>
+            {/* ── Security & Biometrics ──────────────────────────── */}
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeading}>
+                <ShieldCheck size={18} color={colors.textSecondary} />
+                <ThemedText type="smallBold" style={styles.cardTitle}>Security & Biometrics</ThemedText>
+              </View>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleMeta}>
+                  <ThemedText type="smallBold" style={{ fontSize: 13 }}>Multi-Factor Authentication</ThemedText>
+                  <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>
+                    Require 6-digit OTP code at login
+                  </ThemedText>
+                </View>
+                <Pressable onPress={() => setActiveMfa((v) => !v)}>
+                  {activeMfa ? <ToggleRight size={32} color="#e50914" /> : <ToggleLeft size={32} color={colors.textSecondary} />}
                 </Pressable>
-              )}
-            </View>
+              </View>
+              <View style={[styles.toggleRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.backgroundSelected }]}>
+                <View style={styles.toggleMeta}>
+                  <ThemedText type="smallBold" style={{ fontSize: 13 }}>Biometric Login</ThemedText>
+                  <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>
+                    Face ID / fingerprint authentication
+                  </ThemedText>
+                </View>
+                <Pressable onPress={handleBiometricToggle}>
+                  {activeBiometrics ? <ToggleRight size={32} color="#e50914" /> : <ToggleLeft size={32} color={colors.textSecondary} />}
+                </Pressable>
+              </View>
+            </ThemedView>
 
-            {/* List Tiers */}
-            <ThemedText type="smallBold" style={{ marginTop: Spacing.two, marginBottom: 4 }}>
-              Available Upgrades
-            </ThemedText>
-            <View style={styles.tiersGrid}>
-              {SUBSCRIPTION_PLANS.filter((p) => p.id !== subscription.plan).map((plan) => (
-                <View key={plan.id} style={styles.tierPlanCard}>
-                  <View style={styles.tierPlanHeader}>
-                    <ThemedText type="smallBold">{plan.name}</ThemedText>
-                    <ThemedText type="code" style={{ color: '#e1ad01', fontWeight: 'bold' }}>
-                      ${plan.price}/{plan.billingPeriod}
+            {/* ── Connected Devices ──────────────────────────────── */}
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeading}>
+                <Laptop size={18} color={colors.textSecondary} />
+                <ThemedText type="smallBold" style={styles.cardTitle}>Connected Devices ({user.devices.length})</ThemedText>
+              </View>
+              {user.devices.map((device, i) => (
+                <View key={device.id} style={[styles.deviceRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.backgroundSelected }]}>
+                  <Smartphone size={16} color={device.current ? '#e50914' : colors.textSecondary} />
+                  <View style={styles.deviceMeta}>
+                    <ThemedText type="smallBold" style={{ fontSize: 13 }}>{device.name}</ThemedText>
+                    <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
+                      {device.current ? '✅ This device' : device.lastActive}
                     </ThemedText>
                   </View>
-                  <ThemedText type="small" style={styles.tierPlanDesc} numberOfLines={2}>
-                    {plan.features.join(', ')}
-                  </ThemedText>
-                  <Pressable onPress={() => triggerUpgrade(plan.id as any)} style={styles.tierPlanUpgradeBtn}>
-                    <ThemedText type="code" style={{ color: '#ffffff' }}>Select</ThemedText>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          </ThemedView>
-        )}
-
-        {/* Device session lists */}
-        {user && (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <View style={styles.cardHeading}>
-              <Laptop size={18} color={colors.textSecondary} />
-              <ThemedText type="smallBold">Connected Devices ({user.devices.length})</ThemedText>
-            </View>
-            <View style={styles.devicesList}>
-              {user.devices.map((device) => (
-                <View key={device.id} style={styles.deviceRow}>
-                  <Smartphone size={16} color={colors.text} />
-                  <View style={styles.deviceMeta}>
-                    <ThemedText type="smallBold">{device.name}</ThemedText>
-                    <ThemedText type="code" style={{ color: colors.textSecondary }}>{device.lastActive}</ThemedText>
-                  </View>
                   {!device.current && (
-                    <Pressable onPress={() => terminateDeviceSession(device.id)} style={styles.deviceKillBtn}>
-                      <ThemedText type="code" style={{ color: '#f44336' }}>Sign Out</ThemedText>
+                    <Pressable onPress={() => terminateDeviceSession(device.id)} style={styles.deviceSignOut}>
+                      <ThemedText type="code" style={{ color: '#f44336', fontSize: 11, fontWeight: '700' }}>Sign Out</ThemedText>
                     </Pressable>
                   )}
                 </View>
               ))}
-            </View>
-          </ThemedView>
-        )}
+            </ThemedView>
 
-        {/* Security configuration */}
-        {user && (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <View style={styles.cardHeading}>
-              <ShieldCheck size={18} color={colors.textSecondary} />
-              <ThemedText type="smallBold">Security & Biometrics</ThemedText>
-            </View>
-
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleMeta}>
-                <ThemedText type="smallBold">Multi-Factor Authentication (MFA)</ThemedText>
-                <ThemedText type="code" style={{ color: colors.textSecondary }}>
-                  Require 6-digit OTP code during logins.
-                </ThemedText>
+            {/* ── Developer Sandbox ──────────────────────────────── */}
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeading}>
+                <Shield size={18} color={colors.textSecondary} />
+                <ThemedText type="smallBold" style={styles.cardTitle}>Sandbox (Dev Roles)</ThemedText>
               </View>
-              <Pressable onPress={handleMfaToggle}>
-                {activeMfa ? <ToggleRight size={32} color="#e50914" /> : <ToggleLeft size={32} color={colors.textSecondary} />}
-              </Pressable>
-            </View>
-
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleMeta}>
-                <ThemedText type="smallBold">Biometric Verification</ThemedText>
-                <ThemedText type="code" style={{ color: colors.textSecondary }}>
-                  Log in securely with Face ID or fingerprint scanner.
-                </ThemedText>
+              <View style={styles.roleRow}>
+                {(['USER', 'CREATOR', 'MODERATOR', 'ADMIN'] as UserRole[]).map((role) => (
+                  <Pressable
+                    key={role}
+                    onPress={() => updateRole(role)}
+                    style={[
+                      styles.roleBtn,
+                      { backgroundColor: user.role === role ? '#e50914' : colors.backgroundSelected }
+                    ]}
+                  >
+                    <ThemedText type="code" style={{ color: user.role === role ? '#fff' : colors.textSecondary, fontSize: 11 }}>
+                      {role}
+                    </ThemedText>
+                  </Pressable>
+                ))}
               </View>
-              <Pressable onPress={handleBiometricToggle}>
-                {activeBiometrics ? <ToggleRight size={32} color="#e50914" /> : <ToggleLeft size={32} color={colors.textSecondary} />}
-              </Pressable>
-            </View>
-          </ThemedView>
-        )}
+            </ThemedView>
 
-        {/* Logout button */}
-        {user && (
-          <Pressable onPress={handleLogout} style={styles.logoutBtn}>
-            <LogOut size={18} color="#ffffff" />
-            <ThemedText type="smallBold" style={{ color: '#ffffff' }}>Sign Out Account</ThemedText>
-          </Pressable>
+            {/* ── Logout ─────────────────────────────────────────── */}
+            <Pressable onPress={handleLogout} style={styles.logoutBtn}>
+              <LogOut size={18} color="#ffffff" />
+              <ThemedText type="smallBold" style={{ color: '#ffffff' }}>Sign Out</ThemedText>
+            </Pressable>
+          </>
+        ) : (
+          /* ── Guest State ──────────────────────────────────────── */
+          <ThemedView type="backgroundElement" style={styles.guestCard}>
+            <UserIcon size={48} color={colors.textSecondary} />
+            <ThemedText type="smallBold" style={{ fontSize: 18 }}>Browsing as Guest</ThemedText>
+            <ThemedText type="code" style={{ color: colors.textSecondary, textAlign: 'center', lineHeight: 18 }}>
+              Sign in to unlock downloads, playlists, recommendations, and more.
+            </ThemedText>
+            <Pressable onPress={() => router.push('/(auth)/login')} style={styles.loginBtn}>
+              <ThemedText type="smallBold" style={{ color: '#ffffff', fontSize: 14 }}>Sign In / Sign Up</ThemedText>
+            </Pressable>
+          </ThemedView>
         )}
       </ScrollView>
 
-      {/* Billing Payment modal */}
+      {/* Billing Modal */}
       {showBillingModal && selectedPlan && (
         <View style={styles.modalBg}>
           <ThemedView type="backgroundElement" style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Sparkles size={20} color="#e1ad01" fill="#e1ad01" />
-              <ThemedText type="smallBold">Upgrade Plan: {selectedPlan}</ThemedText>
+              <Sparkles size={22} color="#e1ad01" fill="#e1ad01" />
+              <ThemedText type="smallBold" style={{ fontSize: 16 }}>Upgrade to {selectedPlan}</ThemedText>
             </View>
+            <ThemedText type="code" style={{ color: colors.textSecondary }}>
+              ${SUBSCRIPTION_PLANS.find((p) => p.id === selectedPlan)?.price}/month · Cancel anytime
+            </ThemedText>
 
-            {/* Payment options selection */}
-            <View style={styles.paymentMethodRow}>
+            <View style={styles.payMethodRow}>
               {(['STRIPE', 'PAYPAL', 'MPESA'] as const).map((method) => (
                 <Pressable
                   key={method}
                   onPress={() => setPaymentMethod(method)}
-                  style={[
-                    styles.payMethodBtn,
-                    paymentMethod === method && styles.activePayMethodBtn,
-                    { backgroundColor: colors.backgroundSelected }
-                  ]}
+                  style={[styles.payMethodBtn, { backgroundColor: paymentMethod === method ? '#e50914' : colors.backgroundSelected }]}
                 >
-                  <ThemedText type="code" style={{ color: paymentMethod === method ? '#ffffff' : colors.textSecondary }}>
+                  <ThemedText type="code" style={{ color: paymentMethod === method ? '#fff' : colors.textSecondary, fontSize: 11 }}>
                     {method}
                   </ThemedText>
                 </Pressable>
               ))}
             </View>
 
-            {/* Mpesa prompt fields */}
             {paymentMethod === 'MPESA' && (
-              <View style={styles.mpesaForm}>
-                <ThemedText type="small">Enter Phone Number to receive STK Pin prompt:</ThemedText>
-                <TextInput
-                  placeholder="+254 712 345 678"
-                  placeholderTextColor={colors.textSecondary}
-                  value={phoneMpesa}
-                  onChangeText={setPhoneMpesa}
-                  keyboardType="phone-pad"
-                  style={[styles.phoneInput, { color: colors.text, backgroundColor: colors.backgroundSelected }]}
-                />
-              </View>
-            )}
-
-            {paymentMethod === 'STRIPE' && (
-              <View style={styles.cardDetailsBox}>
-                <ThemedText type="code" style={{ color: colors.textSecondary }}>
-                  Simulated secure Stripe payment vault will open on checkout.
-                </ThemedText>
-              </View>
+              <TextInput
+                placeholder="+254 712 345 678"
+                placeholderTextColor={colors.textSecondary}
+                value={phoneMpesa}
+                onChangeText={setPhoneMpesa}
+                keyboardType="phone-pad"
+                style={[styles.phoneInput, { color: colors.text, backgroundColor: colors.backgroundSelected }]}
+              />
             )}
 
             <View style={styles.modalActions}>
               <Pressable onPress={() => setShowBillingModal(false)} style={styles.modalCancel}>
-                <ThemedText type="small">Cancel</ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>Cancel</ThemedText>
               </Pressable>
               <Pressable onPress={executeUpgrade} style={[styles.modalCheckout, { backgroundColor: '#e50914' }]}>
-                {purchasing ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <ThemedText type="smallBold" style={{ color: '#ffffff' }}>Check Out</ThemedText>
-                )}
+                {purchasing
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <ThemedText type="smallBold" style={{ color: '#fff' }}>Pay & Upgrade</ThemedText>
+                }
               </Pressable>
             </View>
           </ThemedView>
@@ -410,281 +407,97 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { padding: Spacing.three, gap: Spacing.three, paddingBottom: BottomTabInset + Spacing.four },
+
+  // User hero
+  userHeroCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
+  avatarWrapper: { position: 'relative', width: 72, height: 72 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#333' },
+  planRing: { position: 'absolute', inset: -3, borderRadius: 39, borderWidth: 2.5 },
+  userMeta: { flex: 1, gap: 3 },
+  displayName: { fontSize: 20, fontWeight: '900' },
+  badgeRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  roleBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+
+  // Stats strip
+  statsStrip: {
+    flexDirection: 'row', borderRadius: 12,
+    paddingVertical: Spacing.two, marginBottom: 4,
   },
-  scrollContent: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
-  },
-  movieBoxCard: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.three,
-  },
-  movieBoxHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  movieShelf: {
-    flexDirection: 'row',
-    gap: Spacing.three,
-    paddingVertical: 4,
-  },
-  shelfMovieCard: {
-    width: 100,
-    gap: 4,
-  },
-  shelfPosterContainer: {
-    position: 'relative',
-    width: 100,
-    aspectRatio: 2 / 3,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
-  },
-  shelfPoster: {
-    width: '100%',
-    height: '100%',
-  },
+  statCell: { flex: 1, alignItems: 'center', gap: 3 },
+  statDivider: { width: 1, height: '60%', alignSelf: 'center' },
+  statNum: { fontSize: 15, fontWeight: '800' },
+  statLabel: { fontSize: 10 },
+
+  // Cards
+  card: { padding: Spacing.three, borderRadius: 12, gap: Spacing.two },
+  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardTitle: { flex: 1, fontSize: 14 },
+  cardAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+
+  // Movie shelf
+  movieShelf: { flexDirection: 'row', gap: Spacing.two, paddingVertical: 4 },
+  shelfCard: { width: 96, gap: 4 },
+  shelfPoster: { position: 'relative', width: 96, aspectRatio: 2 / 3, borderRadius: 8, overflow: 'hidden', backgroundColor: '#1a1a2e' },
+  shelfPosterImg: { width: '100%', height: '100%' },
   offlineTag: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    backgroundColor: '#4caf50',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 3,
-    gap: 2,
-    zIndex: 5,
+    position: 'absolute', top: 4, left: 4, backgroundColor: '#00c853',
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 3,
+    paddingVertical: 1, borderRadius: 3, gap: 2, zIndex: 5,
   },
-  offlineTagText: {
-    color: '#000000',
-    fontSize: 7,
-    fontWeight: 'bold',
+  offlineTagText: { color: '#000', fontSize: 7, fontWeight: '900' },
+  shelfPlayOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  shelfTitle: { fontSize: 11 },
+  shelfMeta: { fontSize: 9 },
+  emptyShelf: { alignItems: 'center', paddingVertical: 24, gap: 6 },
+  emptyShelfBtn: { backgroundColor: '#e50914', paddingVertical: 8, paddingHorizontal: 24, borderRadius: 6, marginTop: 4 },
+
+  // Subscription
+  activePlanBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: Spacing.two, borderRadius: 8, borderWidth: 1,
   },
-  shelfPlayOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  planColorDot: { width: 10, height: 10, borderRadius: 5 },
+  planCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: Spacing.two, borderRadius: 8, borderWidth: 1,
   },
-  shelfMovieTitle: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  shelfMovieMeta: {
-    color: '#888888',
-    fontSize: 8.5,
-  },
-  emptyShelfContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.four,
-    gap: 6,
-  },
-  discoverBtn: {
-    backgroundColor: '#e50914',
-    paddingVertical: 8,
-    paddingHorizontal: Spacing.four,
-    borderRadius: 6,
-    marginTop: Spacing.two,
-  },
-  userHeaderCard: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#333',
-  },
-  userMeta: {
-    flex: 1,
-    gap: 2,
-  },
-  roleBadgeContainer: {
-    flexDirection: 'row',
-    gap: Spacing.one,
-    marginTop: 4,
-  },
-  roleBadge: {
-    paddingHorizontal: Spacing.one,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  roleBadgeText: {
-    color: '#ffffff',
-    fontSize: 9,
-  },
-  guestCard: {
-    padding: Spacing.four,
-    borderRadius: Spacing.two,
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  loginBtn: {
-    backgroundColor: '#e50914',
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.four,
-    borderRadius: 6,
-  },
-  card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    gap: Spacing.two,
-  },
-  cardHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  roleToggleBtn: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  roleToggleBtnActive: {
-    backgroundColor: '#e50914',
-  },
-  activePlanSummary: {
-    gap: 4,
-  },
-  cancelLink: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  tiersGrid: {
-    gap: Spacing.two,
-  },
-  tierPlanCard: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 6,
-    gap: 4,
-  },
-  tierPlanHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  tierPlanDesc: {
-    fontSize: 10,
-    color: '#888888',
-  },
-  tierPlanUpgradeBtn: {
-    backgroundColor: '#e50914',
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  devicesList: {
-    gap: Spacing.two,
-  },
-  deviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: 4,
-  },
-  deviceMeta: {
-    flex: 1,
-  },
-  deviceKillBtn: {
-    padding: 6,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  toggleMeta: {
-    flex: 1,
-    paddingRight: Spacing.three,
-  },
+  planCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  planDot: { width: 8, height: 8, borderRadius: 4 },
+  planCardRight: { alignItems: 'flex-end' },
+
+  // Security toggles
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  toggleMeta: { flex: 1, paddingRight: Spacing.three },
+
+  // Devices
+  deviceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: 8 },
+  deviceMeta: { flex: 1 },
+  deviceSignOut: { padding: 4 },
+
+  // Sandbox roles
+  roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  roleBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+
   logoutBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#d32f2f',
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.two,
+    flexDirection: 'row', backgroundColor: '#c62828',
+    height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 10,
   },
-  modalBg: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: Spacing.four,
-  },
-  modalCard: {
-    padding: Spacing.four,
-    borderRadius: 8,
-    gap: Spacing.three,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  paymentMethodRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  payMethodBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activePayMethodBtn: {
-    backgroundColor: '#e50914',
-  },
-  mpesaForm: {
-    gap: 6,
-  },
-  phoneInput: {
-    height: 44,
-    borderRadius: 4,
-    paddingHorizontal: Spacing.two,
-  },
-  cardDetailsBox: {
-    padding: Spacing.two,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 4,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
-  },
-  modalCancel: {
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.three,
-  },
-  modalCheckout: {
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.four,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
+  // Guest
+  guestCard: { padding: Spacing.five, borderRadius: 12, alignItems: 'center', gap: Spacing.two },
+  loginBtn: { backgroundColor: '#e50914', paddingVertical: 12, paddingHorizontal: Spacing.five, borderRadius: 8, marginTop: 4 },
+
+  // Billing Modal
+  modalBg: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: Spacing.four },
+  modalCard: { padding: Spacing.four, borderRadius: 12, gap: Spacing.two },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  payMethodRow: { flexDirection: 'row', gap: Spacing.two },
+  payMethodBtn: { flex: 1, height: 40, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  phoneInput: { height: 46, borderRadius: 8, paddingHorizontal: Spacing.three },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.two, marginTop: 4 },
+  modalCancel: { paddingVertical: 10, paddingHorizontal: Spacing.three },
+  modalCheckout: { paddingVertical: 10, paddingHorizontal: Spacing.four, borderRadius: 6, justifyContent: 'center', alignItems: 'center', minWidth: 120 },
 });

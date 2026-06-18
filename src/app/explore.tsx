@@ -22,7 +22,9 @@ import {
   TrendingUp,
   Film,
   Radio,
+  Flame,
 } from 'lucide-react-native';
+
 
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
@@ -33,7 +35,7 @@ import { Video } from '../types';
 // ── Genre chips that match actual mock data genres ──────────────────────────
 const GENRE_TAGS = [
   'All', 'Sci-Fi', 'Action', 'Drama', 'Thriller', 'Adventure',
-  'Animation', 'Fantasy', 'Crime', 'Music',
+  'Animation', 'Fantasy', 'Crime', 'Music', 'Gaming', 'Travel',
 ];
 
 const DURATION_OPTIONS = [
@@ -45,6 +47,14 @@ const DURATION_OPTIONS = [
 // Recent searches shown before the user types
 const RECENT_SEARCHES = [
   'Christopher Nolan', 'Interstellar', 'Dune', 'The Dark Knight', 'Sci-Fi 4K',
+];
+
+const TRENDING_SEARCHES = [
+  { term: 'Inception', count: '4.5M' },
+  { term: 'Dune Part Two', count: '3.1M' },
+  { term: 'Spider-Man', count: '2.8M' },
+  { term: 'Christopher Nolan', count: '1.9M' },
+  { term: 'Avatar 4K', count: '1.4M' },
 ];
 
 export default function ExploreScreen() {
@@ -404,7 +414,7 @@ export default function ExploreScreen() {
         />
       )}
 
-      {/* ── Recent searches (shown only when query is empty) ────────────── */}
+      {/* ── Recent & Trending searches (shown when query is empty) ──────── */}
       {!hasSearched && !loading && query.length === 0 && (
         <View style={styles.recentSection}>
           <View style={styles.sectionHeader}>
@@ -420,8 +430,33 @@ export default function ExploreScreen() {
               style={[styles.recentRow, { borderBottomColor: colors.backgroundElement }]}
             >
               <Search size={13} color={colors.textSecondary} style={{ opacity: 0.5 }} />
-              <ThemedText type="small" style={{ color: colors.text, marginLeft: 8 }}>
+              <ThemedText type="small" style={{ color: colors.text, marginLeft: 8, flex: 1 }}>
                 {term}
+              </ThemedText>
+              <TrendingUp size={11} color={colors.textSecondary} style={{ opacity: 0.4 }} />
+            </Pressable>
+          ))}
+
+          <View style={[styles.sectionHeader, { marginTop: 16 }]}>
+            <Flame size={14} color="#e50914" fill="#e50914" />
+            <ThemedText type="smallBold" style={[styles.sectionTitle, { color: colors.text }]}>
+              Trending Searches
+            </ThemedText>
+          </View>
+          {TRENDING_SEARCHES.map(({ term, count }, i) => (
+            <Pressable
+              key={term}
+              onPress={() => applyRecentSearch(term)}
+              style={[styles.recentRow, { borderBottomColor: colors.backgroundElement }]}
+            >
+              <ThemedText type="smallBold" style={{ color: '#e50914', fontSize: 13, width: 20 }}>
+                {i + 1}
+              </ThemedText>
+              <ThemedText type="small" style={{ color: colors.text, flex: 1 }}>
+                {term}
+              </ThemedText>
+              <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
+                {count} searches
               </ThemedText>
             </Pressable>
           ))}
