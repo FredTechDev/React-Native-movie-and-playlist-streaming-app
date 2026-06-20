@@ -8,6 +8,8 @@ import AppTabs from '@/components/app-tabs';
 import { useAuthStore } from '@/store/useAuthStore';
 import { secureStoreService } from '@/services/secureStore';
 
+import { useDownloadStore } from '@/store/useDownloadStore';
+
 // Initialize React Query client for network caching and queries
 const queryClient = new QueryClient();
 
@@ -25,6 +27,8 @@ export default function RootLayout() {
       }
     };
     checkSession();
+    // Validate that downloaded movie files still exist in storage
+    useDownloadStore.getState().verifyOfflineFiles().catch(console.error);
   }, []);
 
   return (
