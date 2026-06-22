@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#222222',
   },
   controlsContainer: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'space-between',
     padding: Spacing.three,

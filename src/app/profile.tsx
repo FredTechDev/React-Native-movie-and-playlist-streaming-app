@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1, borderRadius: 3, gap: 2, zIndex: 5,
   },
   offlineTagText: { color: '#000', fontSize: 7, fontWeight: '900' },
-  shelfPlayOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  shelfPlayOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   shelfTitle: { fontSize: 11 },
   shelfMeta: { fontSize: 9 },
   emptyShelf: { alignItems: 'center', paddingVertical: 24, gap: 6 },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   loginBtn: { backgroundColor: '#e50914', paddingVertical: 12, paddingHorizontal: Spacing.five, borderRadius: 8, marginTop: 4 },
 
   // Billing Modal
-  modalBg: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: Spacing.four },
+  modalBg: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: Spacing.four },
   modalCard: { padding: Spacing.four, borderRadius: 12, gap: Spacing.two },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payMethodRow: { flexDirection: 'row', gap: Spacing.two },

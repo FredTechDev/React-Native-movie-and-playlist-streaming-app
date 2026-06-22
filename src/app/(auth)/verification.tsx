@@ -37,7 +37,7 @@ export default function VerificationScreen() {
     setErrorMsg(null);
     const success = await verifyMfa(code);
     if (success) {
-      router.replace('/(tabs)');
+      router.replace('/');
     } else {
       setErrorMsg('Invalid verification code. Try "123456" for demo admin login.');
     }

@@ -1,79 +1,34 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DownloadTask } from '../types';
 
-const STORAGE_FILE_PATH = `${FileSystem.documentDirectory}downloads_store.json`;
-
-// Custom Storage Engine using Expo File System for Native and localStorage for Web
-const customStorage = {
-  getItem: async (name: string): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      try {
-        return localStorage.getItem(name);
-      } catch (e) {
-        console.error('Failed to read from localStorage:', e);
-        return null;
-      }
-    }
-    try {
-      const fileInfo = await FileSystem.getInfoAsync(STORAGE_FILE_PATH);
-      if (fileInfo.exists) {
-        const content = await FileSystem.readAsStringAsync(STORAGE_FILE_PATH);
-        const parsed = JSON.parse(content);
-        return parsed[name] ? JSON.stringify(parsed[name]) : null;
-      }
-    } catch (e) {
-      console.error('Error reading from file system storage:', e);
-    }
-    return null;
-  },
-  setItem: async (name: string, value: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      try {
-        localStorage.setItem(name, value);
-      } catch (e) {
-        console.error('Failed to write to localStorage:', e);
-      }
-      return;
-    }
-    try {
-      let currentData: Record<string, any> = {};
-      const fileInfo = await FileSystem.getInfoAsync(STORAGE_FILE_PATH);
-      if (fileInfo.exists) {
-        const content = await FileSystem.readAsStringAsync(STORAGE_FILE_PATH);
-        currentData = JSON.parse(content);
-      }
-      currentData[name] = JSON.parse(value);
-      await FileSystem.writeAsStringAsync(STORAGE_FILE_PATH, JSON.stringify(currentData));
-    } catch (e) {
-      console.error('Error writing to file system storage:', e);
-    }
-  },
-  removeItem: async (name: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      try {
-        localStorage.removeItem(name);
-      } catch (e) {
-        console.error('Failed to remove from localStorage:', e);
-      }
-      return;
-    }
-    try {
-      let currentData: Record<string, any> = {};
-      const fileInfo = await FileSystem.getInfoAsync(STORAGE_FILE_PATH);
-      if (fileInfo.exists) {
-        const content = await FileSystem.readAsStringAsync(STORAGE_FILE_PATH);
-        currentData = JSON.parse(content);
-      }
-      delete currentData[name];
-      await FileSystem.writeAsStringAsync(STORAGE_FILE_PATH, JSON.stringify(currentData));
-    } catch (e) {
-      console.error('Error removing from file system storage:', e);
-    }
-  },
-};
+const storage = Platform.OS === 'web'
+  ? createJSONStorage(() => ({
+      getItem: async (name: string) => {
+        try {
+          return localStorage.getItem(name);
+        } catch {
+          return null;
+        }
+      },
+      setItem: async (name: string, value: string) => {
+        try {
+          localStorage.setItem(name, value);
+        } catch (e) {
+          console.error('Failed to write to localStorage:', e);
+        }
+      },
+      removeItem: async (name: string) => {
+        try {
+          localStorage.removeItem(name);
+        } catch (e) {
+          console.error('Failed to remove from localStorage:', e);
+        }
+      },
+    }))
+  : createJSONStorage(() => AsyncStorage);
 
 interface DownloadState {
   tasks: Record<string, DownloadTask>;
@@ -223,8 +178,8 @@ export const useDownloadStore = create<DownloadState>()(
           const task = updatedTasks[taskId];
           if (task.status === 'COMPLETED' && task.localUri) {
             try {
-              const fileInfo = await FileSystem.getInfoAsync(task.localUri);
-              if (!fileInfo.exists) {
+              const response = await fetch(task.localUri, { method: 'HEAD' });
+              if (!response.ok) {
                 updatedTasks[taskId] = { 
                   ...task, 
                   status: 'FAILED', 
@@ -233,8 +188,7 @@ export const useDownloadStore = create<DownloadState>()(
                 };
                 changed = true;
               }
-            } catch (err) {
-              console.error(`Error verifying file for task ${taskId}:`, err);
+            } catch {
               updatedTasks[taskId] = { 
                 ...task, 
                 status: 'FAILED', 
@@ -260,7 +214,7 @@ export const useDownloadStore = create<DownloadState>()(
     }),
     {
       name: 'netstream-download-storage',
-      storage: createJSONStorage(() => customStorage),
+      storage,
     }
   )
 );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock, Mail, Chrome, Apple, Facebook, Github, Fingerprint, ShieldCheck } from 'lucide-react-native';
+import { Lock, Mail, Globe, Apple, MessageCircle, Code2, Fingerprint, ShieldCheck } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,14 +43,14 @@ export default function LoginScreen() {
         params: { email: data.email }
       });
     } else if (response.success) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   };
 
   const handleSocialLogin = async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
     const success = await socialLogin(provider);
     if (success) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   };
 
@@ -61,7 +61,7 @@ export default function LoginScreen() {
       if (authenticated) {
         const response = await login(creds.email);
         if (response.success) {
-          router.replace('/(tabs)');
+          router.replace('/');
         }
       }
     } else {
@@ -179,16 +179,16 @@ export default function LoginScreen() {
 
         <View style={styles.socialGrid}>
           <Pressable onPress={() => handleSocialLogin('google')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Chrome size={20} color={colors.text} />
+            <Globe size={20} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('apple')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
             <Apple size={20} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('facebook')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Facebook size={20} color={colors.text} />
+            <MessageCircle size={20} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('github')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Github size={20} color={colors.text} />
+            <Code2 size={20} color={colors.text} />
           </Pressable>
         </View>
 

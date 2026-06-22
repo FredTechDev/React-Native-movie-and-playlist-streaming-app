@@ -390,11 +390,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   heroGradient: {
-    ...StyleSheet.absoluteFill,
-    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)' as any,
+    ...StyleSheet.absoluteFillObject,
+    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)',
     backgroundColor: 'rgba(0,0,0,0.15)',
     justifyContent: 'flex-end',
-  },
+  } as any,
   heroDetails: { padding: Spacing.four, paddingBottom: Spacing.three, gap: 6 },
 
   heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

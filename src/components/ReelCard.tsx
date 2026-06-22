@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   videoOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     zIndex: 2,
   },
   animatedHeartContainer: {

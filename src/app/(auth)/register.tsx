@@ -37,7 +37,7 @@ export default function RegisterScreen() {
     // Here we simulate successful registration and auto login
     const response = await login(data.email);
     if (response.success) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   };
 

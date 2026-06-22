@@ -11,6 +11,9 @@
       ]
     }
   },
+  "exclude": [
+    "VideoStreaming"
+  ],
   "include": [
     "**/*.ts",
     "**/*.tsx",
