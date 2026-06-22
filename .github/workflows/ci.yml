@@ -2,25 +2,26 @@ name: Netstream Continuous Integration & Deployment
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   audit-and-validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
-      - name: Install Dependencies
-        run: npm ci
+      - run: npm ci
 
       - name: Run Linter
         run: npm run lint
@@ -31,31 +32,66 @@ jobs:
       - name: Run Unit Tests
         run: npm test
 
-  build-and-deploy:
+  docker:
     needs: audit-and-validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify web build inside Docker
+        run: |
+          docker build --target web-build --tag ${{ env.IMAGE_NAME }}:web-test .
+
+  build-and-deploy:
+    needs: docker
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Setup Expo Credentials
-        uses: expo/expo-github-action@v8
+      - uses: expo/expo-github-action@v8
         with:
           expo-version: latest
           eas-token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
       - name: Build Android Release Package (AAB)
         run: eas build --platform android --profile production --non-interactive
