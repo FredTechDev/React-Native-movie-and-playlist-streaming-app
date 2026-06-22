@@ -231,7 +231,6 @@ export default function ExploreScreen() {
     [colors, router]
   );
 
-  // ── Browse-all small poster grid ─────────────────────────────────────────
   const renderBrowseCard = useCallback(
     ({ item }: { item: Video }) => (
       <Pressable
@@ -245,16 +244,20 @@ export default function ExploreScreen() {
             source={{ uri: item.posterUrl || item.thumbnailUrl }}
             style={styles.browsePoster}
           />
+          <View style={styles.cardGradientOverlay} />
           {item.tier === 'PREMIUM' && (
-            <View style={styles.premiumBadge}>
-              <ThemedText type="code" style={styles.premiumBadgeText}>PREMIUM</ThemedText>
+            <View style={styles.premiumBadgeSmall}>
+              <ThemedText type="code" style={styles.premiumBadgeTextSmall}>EXCLUSIVE</ThemedText>
             </View>
           )}
+          <View style={styles.browsePlayOverlay}>
+            <Play size={10} color="#fff" fill="#fff" />
+          </View>
         </View>
         <ThemedText type="smallBold" numberOfLines={1} style={styles.browseTitle}>
           {item.title}
         </ThemedText>
-        <ThemedText type="code" style={[styles.browseGenre, { color: colors.textSecondary }]}>
+        <ThemedText type="caption" style={[styles.browseGenre, { color: colors.textSecondary }]}>
           {item.year ? `${item.year} · ` : ''}{item.genre}
         </ThemedText>
       </Pressable>
@@ -510,6 +513,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
 
   // ── Search bar
@@ -623,9 +627,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 76,
     aspectRatio: 2 / 3,
-    borderRadius: 8,
+    borderRadius: 4,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#0D0D0D',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 6,
   },
   posterThumb: {
     width: '100%',
@@ -745,32 +754,42 @@ const styles = StyleSheet.create({
   browsePosterWrap: {
     position: 'relative',
     aspectRatio: 2 / 3,
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#0D0D0D',
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  cardGradientOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   browsePoster: {
     width: '100%',
     height: '100%',
   },
-  premiumBadge: {
+  premiumBadgeSmall: {
     position: 'absolute',
     top: 4,
     left: 4,
     backgroundColor: '#e1ad01',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 2,
   },
-  premiumBadgeText: {
+  premiumBadgeTextSmall: {
     color: '#000',
-    fontSize: 7,
+    fontSize: 6,
     fontWeight: 'bold',
+  },
+  browsePlayOverlay: {
+    position: 'absolute', bottom: 6, left: 6,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(229,9,20,0.9)',
+    justifyContent: 'center', alignItems: 'center',
   },
   browseTitle: {
     fontSize: 11,

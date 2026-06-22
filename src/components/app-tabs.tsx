@@ -11,48 +11,39 @@ export default function AppTabs() {
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      indicatorColor={colors.backgroundSelected}
+      labelStyle={{
+        selected: { color: colors.text, fontWeight: '800', fontSize: 10 },
+      }}
+    >
       <NativeTabs.Trigger name="index">
         <Label>Home</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/home.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore">
         <Label>Explore</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/explore.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="reels">
         <Label>Reels</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/reels.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/reels.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="creator">
         <Label>Creator</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/creator.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/creator.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="downloads">
         <Label>Downloads</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/downloads.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/downloads.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
         <Label>Profile</Label>
-        <Icon
-          src={require('@/assets/images/tabIcons/profile.png')}
-        />
+        <Icon src={require('@/assets/images/tabIcons/profile.png')} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

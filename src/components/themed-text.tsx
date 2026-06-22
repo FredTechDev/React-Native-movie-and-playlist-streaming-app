@@ -4,7 +4,7 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: 'default' | 'title' | 'heroTitle' | 'small' | 'smallBold' | 'caption' | 'subtitle' | 'link' | 'linkPrimary' | 'code' | 'metacritic';
   themeColor?: ThemeColor;
 };
 
@@ -17,12 +17,15 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         { color: theme[themeColor ?? 'text'] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
+        type === 'heroTitle' && styles.heroTitle,
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
+        type === 'caption' && styles.caption,
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        type === 'metacritic' && styles.metacritic,
         style,
       ]}
       {...rest}
@@ -31,6 +34,12 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 500,
+    letterSpacing: 0.3,
+  },
   small: {
     fontSize: 14,
     lineHeight: 20,
@@ -47,14 +56,22 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontSize: 28,
+    fontWeight: 700,
+    lineHeight: 32,
+    letterSpacing: 0.2,
+  },
+  heroTitle: {
+    fontSize: 32,
+    fontWeight: 900,
+    lineHeight: 36,
+    letterSpacing: 0.1,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontSize: 22,
+    fontWeight: 700,
+    lineHeight: 28,
+    letterSpacing: 0.1,
   },
   link: {
     lineHeight: 30,
@@ -69,5 +86,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
     fontSize: 12,
+  },
+  metacritic: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    lineHeight: 14,
   },
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, useColorScheme } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, useColorScheme, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Lock, Mail, Globe, Apple, MessageCircle, Code2, Fingerprint, ShieldCheck } from 'lucide-react-native';
+import { Lock, Mail, Globe, Apple, MessageCircle, Code2, Fingerprint, Play } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -19,11 +19,13 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+const CINEMATIC_BG = 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80';
+
 export default function LoginScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-  
+
   const { login, socialLogin, loading, error, enableBiometrics } = useAuthStore();
   const [mfaNeeded, setMfaNeeded] = useState(false);
   const [emailForMfa, setEmailForMfa] = useState('');
@@ -65,7 +67,6 @@ export default function LoginScreen() {
         }
       }
     } else {
-      // Simulate registering current device biometrics
       const authenticated = await secureStoreService.authenticateBiometrics();
       if (authenticated) {
         await secureStoreService.saveBiometricCredentials('fred@netstream.com', '123456');
@@ -77,13 +78,24 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Cinematic Background */}
+      <ImageBackground
+        source={{ uri: CINEMATIC_BG }}
+        style={styles.bgImage}
+        resizeMode="cover"
+      >
+        <View style={styles.bgOverlay} />
+      </ImageBackground>
+
       <View style={styles.content}>
         <View style={styles.header}>
-          <ShieldCheck size={48} color="#e50914" />
-          <ThemedText type="title" style={styles.title}>
+          <View style={styles.brandBadge}>
+            <Play size={20} color="#e50914" fill="#e50914" />
+          </View>
+          <ThemedText type="heroTitle" style={styles.title}>
             Sign In
           </ThemedText>
-          <ThemedText type="small" style={{ color: colors.textSecondary }}>
+          <ThemedText type="caption" style={{ color: colors.textSecondary }}>
             Access the ultimate video streaming platform
           </ThemedText>
         </View>
@@ -95,9 +107,8 @@ export default function LoginScreen() {
         )}
 
         <View style={styles.form}>
-          {/* Email field */}
-          <View style={styles.inputContainer}>
-            <Mail size={18} color={colors.textSecondary} style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { backgroundColor: colors.backgroundElement }]}>
+            <Mail size={16} color={colors.textSecondary} style={styles.inputIcon} />
             <Controller
               control={control}
               name="email"
@@ -110,7 +121,7 @@ export default function LoginScreen() {
                   value={value}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  style={[styles.input, { color: colors.text, borderBottomColor: colors.backgroundElement }]}
+                  style={[styles.input, { color: colors.text }]}
                 />
               )}
             />
@@ -121,9 +132,8 @@ export default function LoginScreen() {
             </ThemedText>
           )}
 
-          {/* Password field */}
-          <View style={styles.inputContainer}>
-            <Lock size={18} color={colors.textSecondary} style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { backgroundColor: colors.backgroundElement }]}>
+            <Lock size={16} color={colors.textSecondary} style={styles.inputIcon} />
             <Controller
               control={control}
               name="password"
@@ -135,7 +145,7 @@ export default function LoginScreen() {
                   onChangeText={onChange}
                   value={value}
                   secureTextEntry
-                  style={[styles.input, { color: colors.text, borderBottomColor: colors.backgroundElement }]}
+                  style={[styles.input, { color: colors.text }]}
                 />
               )}
             />
@@ -146,9 +156,8 @@ export default function LoginScreen() {
             </ThemedText>
           )}
 
-          {/* Submit */}
-          <Pressable 
-            onPress={handleSubmit(onSubmit)} 
+          <Pressable
+            onPress={handleSubmit(onSubmit)}
             style={[styles.submitButton, { backgroundColor: '#e50914' }]}
             disabled={loading}
           >
@@ -162,37 +171,34 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        {/* Biometrics */}
         <Pressable onPress={handleBiometricLogin} style={styles.biometricsBtn}>
-          <Fingerprint size={28} color="#e50914" />
+          <Fingerprint size={22} color="#e50914" />
           <ThemedText type="small" style={styles.biometricsText}>
             Sign In with Face ID / Fingerprint
           </ThemedText>
         </Pressable>
 
-        {/* Social Authentication */}
         <View style={styles.divider}>
-          <View style={[styles.line, { backgroundColor: colors.backgroundElement }]} />
+          <View style={[styles.line, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
           <ThemedText type="code" style={styles.dividerText}>OR WATCH WITH</ThemedText>
-          <View style={[styles.line, { backgroundColor: colors.backgroundElement }]} />
+          <View style={[styles.line, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
         </View>
 
         <View style={styles.socialGrid}>
           <Pressable onPress={() => handleSocialLogin('google')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Globe size={20} color={colors.text} />
+            <Globe size={18} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('apple')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Apple size={20} color={colors.text} />
+            <Apple size={18} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('facebook')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <MessageCircle size={20} color={colors.text} />
+            <MessageCircle size={18} color={colors.text} />
           </Pressable>
           <Pressable onPress={() => handleSocialLogin('github')} style={[styles.socialBtn, { backgroundColor: colors.backgroundElement }]}>
-            <Code2 size={20} color={colors.text} />
+            <Code2 size={18} color={colors.text} />
           </Pressable>
         </View>
 
-        {/* Register navigation link */}
         <View style={styles.footerLink}>
           <ThemedText type="small">New to Netstream?</ThemedText>
           <Pressable onPress={() => router.push('/(auth)/register')}>
@@ -209,18 +215,41 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: Spacing.four,
+    backgroundColor: '#000000',
+  },
+  bgImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.four,
     gap: Spacing.four,
   },
   header: {
     alignItems: 'center',
     gap: Spacing.one,
   },
+  brandBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(229,9,20,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(229,9,20,0.25)',
+  },
   title: {
     fontSize: 28,
+    color: '#ffffff',
   },
   errorBanner: {
     backgroundColor: 'rgba(244, 67, 54, 0.1)',
@@ -240,17 +269,16 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    borderRadius: 8,
+    height: 50,
+    paddingHorizontal: Spacing.two,
   },
   inputIcon: {
-    position: 'absolute',
-    left: 8,
+    marginRight: Spacing.two,
   },
   input: {
     flex: 1,
-    height: 48,
-    borderBottomWidth: 1,
-    paddingLeft: 36,
+    height: '100%',
     fontSize: 15,
   },
   fieldError: {
@@ -259,14 +287,15 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.one,
   },
   submitButton: {
-    height: 48,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.two,
   },
   submitText: {
     color: '#ffffff',
+    fontSize: 15,
   },
   biometricsBtn: {
     flexDirection: 'row',
@@ -277,6 +306,7 @@ const styles = StyleSheet.create({
   },
   biometricsText: {
     fontSize: 13,
+    color: '#ffffff',
   },
   divider: {
     flexDirection: 'row',
