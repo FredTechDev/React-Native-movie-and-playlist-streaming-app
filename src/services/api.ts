@@ -15,9 +15,8 @@ const TRENDING_RANK: Record<string, number> = {
 // Simulated API service layer. Ready for integration with NestJS/PostgreSQL backend.
 export const apiService = {
   getVideos: async (tier?: 'FREE' | 'BASIC' | 'PREMIUM'): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 280));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     const list = MOCK_VIDEOS.filter((v) => !v.isReel && !v.isLive);
-    // Sort by trending rank first
     const sorted = [...list].sort((a, b) => {
       const ra = TRENDING_RANK[a.id] ?? 99;
       const rb = TRENDING_RANK[b.id] ?? 99;
@@ -28,23 +27,22 @@ export const apiService = {
   },
 
   getReels: async (): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 380));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_VIDEOS.filter((v) => v.isReel);
   },
 
   getLiveStreams: async (): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 60));
     return MOCK_VIDEOS.filter((v) => v.isLive);
   },
 
   getVideoById: async (id: string): Promise<Video | undefined> => {
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     return MOCK_VIDEOS.find((v) => v.id === id);
   },
 
-  // Collaborative + content-based AI recommendation
   getRecommendedVideos: async (userInterestGenre = 'Fantasy'): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 420));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const films = MOCK_VIDEOS.filter((v) => !v.isReel && !v.isLive);
     return [...films].sort((a, b) => {
       const aMatch = a.genre.toLowerCase() === userInterestGenre.toLowerCase() ? 1 : 0;
@@ -54,12 +52,11 @@ export const apiService = {
     });
   },
 
-  // Full-text + metadata search with duration filter
   searchVideos: async (
     query: string,
     filters?: { genre?: string; rating?: string; duration?: 'short' | 'medium' | 'long' },
   ): Promise<Video[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     let results = MOCK_VIDEOS.filter((v) => !v.isReel);
 
     if (query.trim()) {
@@ -101,7 +98,7 @@ export const apiService = {
 
   // Comments
   getCommentsByVideoId: async (videoId: string): Promise<Comment[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 60));
     return [
       {
         id: 'c1',
@@ -160,7 +157,7 @@ export const apiService = {
   },
 
   addComment: async (videoId: string, userId: string, username: string, avatarUrl: string, content: string): Promise<Comment> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     return {
       id: `c-new-${Date.now()}`,
       videoId,
@@ -175,7 +172,7 @@ export const apiService = {
 
   // Creator Dashboard Analytics
   getCreatorAnalytics: async (creatorId: string): Promise<CreatorAnalytics> => {
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     return {
       subscribersCount: 124980,
       totalViews: 9_403_920,
@@ -198,7 +195,7 @@ export const apiService = {
     videoFileUri: string,
     thumbnailFileUri: string,
   ): Promise<Video> => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     return {
       id: `f-user-${Date.now()}`,
       title,

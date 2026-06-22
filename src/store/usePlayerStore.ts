@@ -48,8 +48,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   updateProgress: (videoId, position, duration) => {
     set((state) => {
+      const existing = state.playbackProgress[videoId];
+      if (existing && Math.abs(existing.position - position) < 1) {
+        return {};
+      }
       const updatedProgress = { ...state.playbackProgress };
-      // Check if video is finished (95% completion counts as finished)
       if (position / duration >= 0.95) {
         delete updatedProgress[videoId];
       } else {

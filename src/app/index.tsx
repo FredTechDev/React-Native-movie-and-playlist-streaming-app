@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet, View, ScrollView, Image, Pressable,
   ImageBackground, useColorScheme, FlatList,
@@ -56,8 +56,8 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
-  const { user, isAuthenticated } = useAuthStore();
-  const { playbackProgress } = usePlayerStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
 
   const [loading, setLoading] = useState(true);
   const [featuredVideo, setFeaturedVideo] = useState<Video | null>(null);
@@ -69,6 +69,7 @@ export default function HomeScreen() {
   // Hero fade-in animation
   const heroOpacity = useRef(new Animated.Value(0)).current;
 
+  // Fetch all content once on mount
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -86,18 +87,6 @@ export default function HomeScreen() {
         }
         setRecommendedVideos(recommended.slice(0, 8));
         setLiveStreams(live);
-
-        const listWithProgress: (Video & { progress: number })[] = [];
-        for (const [vId, progressObj] of Object.entries(playbackProgress)) {
-          const matched = films.find((f) => f.id === vId);
-          if (matched && progressObj.duration > 0) {
-            const pct = (progressObj.position / progressObj.duration) * 100;
-            if (pct > 2 && pct < 97) {
-              listWithProgress.push({ ...matched, progress: pct });
-            }
-          }
-        }
-        setContinueVideos(listWithProgress);
       } catch (err) {
         console.error('Error loading home data:', err);
       } finally {
@@ -105,9 +94,29 @@ export default function HomeScreen() {
       }
     };
     fetchData();
+  }, [heroOpacity]);
+
+  // Lightweight update for continue-watching (no full data re-fetch)
+  const playbackProgress = usePlayerStore((s) => s.playbackProgress);
+  useEffect(() => {
+    const updateContinue = async () => {
+      const films = await apiService.getVideos();
+      const listWithProgress: (Video & { progress: number })[] = [];
+      for (const [vId, progressObj] of Object.entries(playbackProgress)) {
+        const matched = films.find((f) => f.id === vId);
+        if (matched && progressObj.duration > 0) {
+          const pct = (progressObj.position / progressObj.duration) * 100;
+          if (pct > 2 && pct < 97) {
+            listWithProgress.push({ ...matched, progress: pct });
+          }
+        }
+      }
+      setContinueVideos(listWithProgress);
+    };
+    updateContinue();
   }, [playbackProgress]);
 
-  const handleWatch = (video: Video) => {
+  const handleWatch = useCallback((video: Video) => {
     if (video.tier === 'PREMIUM' && (!user || user.role === 'GUEST')) {
       alert('Premium content — please sign in and upgrade to watch.');
       router.push('/(auth)/login');
@@ -118,9 +127,9 @@ export default function HomeScreen() {
     } else {
       router.push(`/watch/${video.id}`);
     }
-  };
+  }, [user, router]);
 
-  const renderVideoCard = ({ item }: { item: Video }) => (
+  const renderVideoCard = useCallback(({ item }: { item: Video }) => (
     <Pressable onPress={() => handleWatch(item)} style={styles.cardPressable}>
       <View style={styles.posterContainer}>
         <Image source={{ uri: item.posterUrl || item.thumbnailUrl }} style={styles.cardImage} />
@@ -144,9 +153,9 @@ export default function HomeScreen() {
         </ThemedText>
       </View>
     </Pressable>
-  );
+  ), [handleWatch]);
 
-  const renderContinueCard = ({ item }: { item: Video & { progress: number } }) => (
+  const renderContinueCard = useCallback(({ item }: { item: Video & { progress: number } }) => (
     <Pressable onPress={() => handleWatch(item)} style={styles.continueCard}>
       <View style={styles.continueThumbnailContainer}>
         <Image source={{ uri: item.thumbnailUrl }} style={styles.continueImage} />
@@ -164,9 +173,9 @@ export default function HomeScreen() {
       </View>
       <ThemedText type="smallBold" numberOfLines={1} style={styles.continueTitle}>{item.title}</ThemedText>
     </Pressable>
-  );
+  ), [handleWatch]);
 
-  const renderLiveCard = ({ item }: { item: Video }) => (
+  const renderLiveCard = useCallback(({ item }: { item: Video }) => (
     <Pressable onPress={() => handleWatch(item)} style={styles.liveCard}>
       <View style={styles.liveThumbnailWrap}>
         <Image source={{ uri: item.thumbnailUrl }} style={styles.liveImage} />
@@ -185,7 +194,7 @@ export default function HomeScreen() {
         {item.creatorName}
       </ThemedText>
     </Pressable>
-  );
+  ), [handleWatch, colors.textSecondary]);
 
   if (loading) {
     return (
@@ -293,6 +302,9 @@ export default function HomeScreen() {
               keyExtractor={(item) => item.id}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalList}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={4}
+              windowSize={3}
             />
           </View>
         )}

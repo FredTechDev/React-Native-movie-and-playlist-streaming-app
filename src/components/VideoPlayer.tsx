@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Pressable, ActivityIndicator, Dimensions, useColorScheme } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { 
@@ -21,12 +21,14 @@ export default function VideoPlayer({ video, isOffline = false, offlineUri }: Vi
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   
-  const { 
-    playbackSpeed, setPlaybackSpeed, 
-    subtitlesEnabled, toggleSubtitles,
-    isCasting, setCastDevice,
-    updateProgress, playbackProgress
-  } = usePlayerStore();
+  const playbackSpeed = usePlayerStore((s) => s.playbackSpeed);
+  const subtitlesEnabled = usePlayerStore((s) => s.subtitlesEnabled);
+  const isCasting = usePlayerStore((s) => s.isCasting);
+  const setPlaybackSpeed = usePlayerStore((s) => s.setPlaybackSpeed);
+  const toggleSubtitles = usePlayerStore((s) => s.toggleSubtitles);
+  const setCastDevice = usePlayerStore((s) => s.setCastDevice);
+  const updateProgress = usePlayerStore((s) => s.updateProgress);
+  const playbackProgress = usePlayerStore((s) => s.playbackProgress);
 
   const [showControls, setShowControls] = useState(true);
   const [currentResolution, setCurrentResolution] = useState(video.resolution || '1080p');
@@ -55,24 +57,31 @@ export default function VideoPlayer({ video, isOffline = false, offlineUri }: Vi
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(video.duration || 1);
   const [isPlaying, setIsPlaying] = useState(true);
+  const isPlayingRef = useRef(true);
 
   useEffect(() => {
-    // Add updates listener
     const timeInterval = setInterval(() => {
-      if (player) {
-        setCurrentTime(player.currentTime);
-        setDuration(player.duration || video.duration || 1);
-        setIsPlaying(player.playing);
-        
-        // Track progress in store
-        if (player.currentTime > 0) {
-          updateProgress(video.id, player.currentTime, player.duration || video.duration);
-        }
+      if (!player) return;
+      const ct = player.currentTime;
+      const dur = player.duration || video.duration || 1;
+      const playing = player.playing;
+      
+      setCurrentTime(ct);
+      setDuration(dur);
+      
+      if (playing !== isPlayingRef.current) {
+        setIsPlaying(playing);
+        isPlayingRef.current = playing;
+      }
+      
+      // Only update store when actively playing and position changed
+      if (playing && ct > 0 && dur > 0) {
+        updateProgress(video.id, ct, dur);
       }
     }, 1000);
 
     return () => clearInterval(timeInterval);
-  }, [player, video.id]);
+  }, [player, video.id, video.duration, updateProgress]);
 
   // Handle Play/Pause
   const handlePlayPause = () => {

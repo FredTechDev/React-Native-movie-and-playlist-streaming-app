@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -146,6 +146,14 @@ export default function ExploreScreen() {
     inputRange: [0, 1],
     outputRange: [colors.backgroundElement, '#e50914'],
   });
+
+  // Memoize filtered catalog to avoid re-filter on every render
+  const filteredCatalog = useMemo(
+    () => selectedGenre
+      ? browseCatalog.filter((v) => v.genre === selectedGenre)
+      : browseCatalog,
+    [browseCatalog, selectedGenre]
+  );
 
   // ── Search result row ────────────────────────────────────────────────────
   const renderResultCard = useCallback(
@@ -395,6 +403,10 @@ export default function ExploreScreen() {
             styles.listContent,
             { paddingBottom: BottomTabInset + 16 },
           ]}
+          windowSize={5}
+          maxToRenderPerBatch={10}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
           ListHeaderComponent={
             <ThemedText type="code" style={[styles.resultCount, { color: colors.textSecondary }]}>
               {results.length === 0 ? 'No results' : `${results.length} result${results.length !== 1 ? 's' : ''}`}
@@ -477,16 +489,16 @@ export default function ExploreScreen() {
             <ActivityIndicator color="#e50914" style={{ marginTop: 24 }} />
           ) : (
             <FlatList
-              data={
-                selectedGenre
-                  ? browseCatalog.filter((v) => v.genre === selectedGenre)
-                  : browseCatalog
-              }
+              data={filteredCatalog}
               renderItem={renderBrowseCard}
               keyExtractor={(item) => item.id}
               numColumns={3}
               columnWrapperStyle={styles.browseRow}
               contentContainerStyle={[styles.browseGrid, { paddingBottom: BottomTabInset + 16 }]}
+              windowSize={3}
+              maxToRenderPerBatch={6}
+              removeClippedSubviews={true}
+              initialNumToRender={6}
             />
           )}
         </>
