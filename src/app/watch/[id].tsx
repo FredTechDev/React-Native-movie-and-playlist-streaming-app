@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet, View, ScrollView, Pressable, Image,
-  ActivityIndicator, TextInput, useColorScheme, Share,
+  ActivityIndicator, TextInput, useColorScheme, Share, FlatList,
+  Dimensions, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Download, Heart, Share2, Plus, ArrowLeft,
   CheckCircle2, Star, Clock, Eye, ThumbsUp,
-  MessageSquare, ChevronDown, ChevronUp,
+  MessageSquare, ChevronDown, ChevronUp, Play,
+  Film, Languages, Volume2, Subtitles,
+  ChevronRight, List,
 } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +23,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 import VideoPlayer from '@/components/VideoPlayer';
 import { Video, Comment } from '@/types';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const POSTER_WIDTH = 110;
+const CAST_ITEM_WIDTH = 80;
+
 function formatViews(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -31,6 +38,28 @@ function formatDuration(s: number) {
   const m = Math.floor((s % 3600) / 60);
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
+
+function StarRating({ rating, size = 14 }: { rating?: string; size?: number }) {
+  const starCount = rating === 'R' ? 4 : rating === 'PG-13' ? 3 : rating === 'PG' ? 2 : rating === 'G' ? 1 : 3;
+  return (
+    <View style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={size}
+          color={s <= starCount ? '#e1ad01' : '#333'}
+          fill={s <= starCount ? '#e1ad01' : 'transparent'}
+        />
+      ))}
+    </View>
+  );
 }
 
 export default function WatchScreen() {
@@ -48,6 +77,7 @@ export default function WatchScreen() {
   const [recommendations, setRecommendations] = useState<Video[]>([]);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [inWatchlist, setInWatchlist] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
@@ -67,8 +97,9 @@ export default function WatchScreen() {
         if (item) {
           setVideo(item);
           setLikeCount(item.likes);
+          setInWatchlist(apiService.isInWatchlist(item.id));
           const recs = await apiService.getRecommendedVideos(item.genre);
-          setRecommendations(recs.filter((r) => r.id !== item.id).slice(0, 8));
+          setRecommendations(recs.filter((r) => r.id !== item.id).slice(0, 12));
         }
         const commentsData = await apiService.getCommentsByVideoId(params.id);
         setComments(commentsData);
@@ -86,6 +117,16 @@ export default function WatchScreen() {
       setLikeCount((c) => (prev ? c - 1 : c + 1));
       return !prev;
     });
+  };
+
+  const handleWatchlist = async () => {
+    if (!video) return;
+    if (inWatchlist) {
+      await apiService.removeFromWatchlist(video.id);
+    } else {
+      await apiService.addToWatchlist(video.id);
+    }
+    setInWatchlist((v) => !v);
   };
 
   const handleShare = async () => {
@@ -122,6 +163,40 @@ export default function WatchScreen() {
     }
   };
 
+  const renderCastItem = useCallback(({ item }: { item: string }) => (
+    <View style={styles.castItem}>
+      <View style={styles.castAvatarCircle}>
+        <ThemedText type="smallBold" style={{ color: '#fff', fontSize: 18 }}>
+          {item.charAt(0)}
+        </ThemedText>
+      </View>
+      <ThemedText type="code" style={styles.castName} numberOfLines={2}>
+        {item}
+      </ThemedText>
+    </View>
+  ), []);
+
+  const renderRecItem = useCallback(({ item }: { item: Video }) => (
+    <Pressable
+      key={item.id}
+      onPress={() => router.push(`/watch/${item.id}`)}
+      style={styles.recCard}
+    >
+      <Image source={{ uri: item.thumbnailUrl }} style={styles.recPoster} />
+      {item.tier !== 'FREE' && (
+        <View style={[styles.recTierBadge, { backgroundColor: item.tier === 'PREMIUM' ? '#e1ad01' : '#1565c0' }]}>
+          <ThemedText type="code" style={styles.recTierText}>{item.tier}</ThemedText>
+        </View>
+      )}
+      <ThemedText type="smallBold" style={styles.recTitle} numberOfLines={1}>
+        {item.title}
+      </ThemedText>
+      <ThemedText type="code" style={styles.recMeta}>
+        {item.genre} · {formatViews(item.views)} views
+      </ThemedText>
+    </Pressable>
+  ), [router]);
+
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -143,178 +218,244 @@ export default function WatchScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      {/* Video Player */}
-      <VideoPlayer video={video} isOffline={isOffline} offlineUri={localUri} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Video Player */}
+        <VideoPlayer video={video} isOffline={isOffline} offlineUri={localUri} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Title & Meta */}
-        <View style={styles.detailCard}>
-          <ThemedText type="title" style={styles.title}>{video.title}</ThemedText>
+        {/* Hero Info Section */}
+        <View style={styles.heroSection}>
+          {/* Poster + Key Info Row */}
+          <View style={styles.posterRow}>
+            <Image
+              source={{ uri: video.posterUrl || video.thumbnailUrl }}
+              style={styles.posterImage}
+            />
+            <View style={styles.heroInfo}>
+              <ThemedText type="title" style={styles.movieTitle}>{video.title}</ThemedText>
 
-          {/* Stats row */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Eye size={13} color={colors.textSecondary} />
-              <ThemedText type="code" style={[styles.statText, { color: colors.textSecondary }]}>
-                {formatViews(video.views)} views
-              </ThemedText>
-            </View>
-            {video.duration > 0 && (
-              <View style={styles.statItem}>
-                <Clock size={13} color={colors.textSecondary} />
-                <ThemedText type="code" style={[styles.statText, { color: colors.textSecondary }]}>
-                  {formatDuration(video.duration)}
+              <View style={styles.heroMetaRow}>
+                {video.year && (
+                  <ThemedText type="small" style={[styles.heroMetaText, { color: colors.textSecondary }]}>
+                    {video.year}
+                  </ThemedText>
+                )}
+                {video.rating && (
+                  <View style={styles.heroRatingBadge}>
+                    <ThemedText type="code" style={styles.heroRatingText}>{video.rating}</ThemedText>
+                  </View>
+                )}
+                {video.duration > 0 && (
+                  <ThemedText type="small" style={[styles.heroMetaText, { color: colors.textSecondary }]}>
+                    {formatDuration(video.duration)}
+                  </ThemedText>
+                )}
+                <View style={[styles.heroResBadge, { backgroundColor: video.tier === 'PREMIUM' ? '#e1ad01' : '#333' }]}>
+                  <ThemedText type="code" style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>
+                    {video.resolution}
+                  </ThemedText>
+                </View>
+              </View>
+
+              <StarRating rating={video.rating} size={12} />
+
+              <View style={styles.heroStatsRow}>
+                <Eye size={12} color={colors.textSecondary} />
+                <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
+                  {formatViews(video.views)} views
+                </ThemedText>
+                <View style={styles.dot} />
+                <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
+                  {video.genre}
                 </ThemedText>
               </View>
-            )}
-            {video.year && (
-              <ThemedText type="code" style={[styles.statText, { color: colors.textSecondary }]}>
-                {video.year}
-              </ThemedText>
-            )}
-            {video.rating && (
-              <View style={styles.ratingBadge}>
-                <ThemedText type="code" style={styles.ratingText}>{video.rating}</ThemedText>
-              </View>
-            )}
-            <View style={styles.resBadge}>
-              <ThemedText type="code" style={styles.resBadgeText}>{video.resolution}</ThemedText>
             </View>
           </View>
 
-          {/* Tier & Genre chips */}
-          <View style={styles.chipRow}>
-            <View style={[styles.tierChip, { backgroundColor: video.tier === 'PREMIUM' ? '#e1ad01' : video.tier === 'BASIC' ? '#1565c0' : '#333' }]}>
-              <ThemedText type="code" style={styles.tierChipText}>{video.tier}</ThemedText>
-            </View>
-            <View style={styles.genreChip}>
-              <ThemedText type="code" style={[styles.genreChipText, { color: colors.textSecondary }]}>{video.genre}</ThemedText>
-            </View>
-          </View>
-
-          {/* Action Row */}
-          <View style={[styles.actionRow, { borderColor: colors.backgroundElement }]}>
-            <Pressable onPress={handleLike} style={styles.actionItem}>
-              <Heart size={22} color={liked ? '#e50914' : colors.text} fill={liked ? '#e50914' : 'transparent'} />
-              <ThemedText type="code" style={[styles.actionText, { color: liked ? '#e50914' : colors.textSecondary }]}>
+          {/* Action Buttons Row */}
+          <View style={styles.actionRow}>
+            <Pressable onPress={handleLike} style={styles.actionBtn}>
+              <Heart size={20} color={liked ? '#e50914' : colors.text} fill={liked ? '#e50914' : 'transparent'} />
+              <ThemedText type="code" style={[styles.actionBtnText, { color: liked ? '#e50914' : colors.textSecondary }]}>
                 {formatViews(likeCount)}
               </ThemedText>
             </Pressable>
 
-            {!downloadTask ? (
-              <Pressable onPress={handleDownload} style={styles.actionItem}>
-                <Download size={22} color={colors.text} />
-                <ThemedText type="code" style={[styles.actionText, { color: colors.textSecondary }]}>Save</ThemedText>
-              </Pressable>
-            ) : downloadTask.status === 'COMPLETED' ? (
-              <Pressable style={styles.actionItem}>
-                <CheckCircle2 size={22} color="#00c853" />
-                <ThemedText type="code" style={[styles.actionText, { color: '#00c853' }]}>Saved</ThemedText>
-              </Pressable>
-            ) : (
-              <Pressable style={styles.actionItem}>
-                <ActivityIndicator size="small" color="#e50914" />
-                <ThemedText type="code" style={[styles.actionText, { color: '#e50914' }]}>{downloadTask.progress}%</ThemedText>
-              </Pressable>
-            )}
-
-            <Pressable onPress={handleShare} style={styles.actionItem}>
-              <Share2 size={22} color={colors.text} />
-              <ThemedText type="code" style={[styles.actionText, { color: colors.textSecondary }]}>Share</ThemedText>
+            <Pressable onPress={handleDownload} style={styles.actionBtn}>
+              {!downloadTask ? (
+                <>
+                  <Download size={20} color={colors.text} />
+                  <ThemedText type="code" style={[styles.actionBtnText, { color: colors.textSecondary }]}>Download</ThemedText>
+                </>
+              ) : downloadTask.status === 'COMPLETED' ? (
+                <>
+                  <CheckCircle2 size={20} color="#00c853" />
+                  <ThemedText type="code" style={[styles.actionBtnText, { color: '#00c853' }]}>Saved</ThemedText>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator size="small" color="#e50914" />
+                  <ThemedText type="code" style={[styles.actionBtnText, { color: '#e50914' }]}>{downloadTask.progress}%</ThemedText>
+                </>
+              )}
             </Pressable>
 
-            <Pressable style={styles.actionItem}>
-              <Plus size={22} color={colors.text} />
-              <ThemedText type="code" style={[styles.actionText, { color: colors.textSecondary }]}>Watchlist</ThemedText>
-            </Pressable>
-          </View>
-
-          {/* Creator Channel */}
-          <View style={[styles.creatorChannel, { borderColor: colors.backgroundElement }]}>
-            <Image source={{ uri: video.creatorAvatar }} style={styles.creatorAvatar} />
-            <View style={styles.creatorMeta}>
-              <ThemedText type="smallBold" style={{ fontSize: 14 }}>{video.creatorName}</ThemedText>
-              <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>124K subscribers</ThemedText>
-            </View>
-            <Pressable
-              onPress={() => setSubscribed((v) => !v)}
-              style={[styles.subBtn, { backgroundColor: subscribed ? colors.backgroundElement : colors.text }]}
-            >
-              <ThemedText type="code" style={{ color: subscribed ? colors.textSecondary : colors.background, fontWeight: '700', fontSize: 11 }}>
-                {subscribed ? 'Subscribed' : 'Subscribe'}
+            <Pressable onPress={handleWatchlist} style={styles.actionBtn}>
+              <Plus size={20} color={inWatchlist ? '#e50914' : colors.text} />
+              <ThemedText type="code" style={[styles.actionBtnText, { color: inWatchlist ? '#e50914' : colors.textSecondary }]}>
+                {inWatchlist ? 'In List' : 'My List'}
               </ThemedText>
             </Pressable>
+
+            <Pressable onPress={handleShare} style={styles.actionBtn}>
+              <Share2 size={20} color={colors.text} />
+              <ThemedText type="code" style={[styles.actionBtnText, { color: colors.textSecondary }]}>Share</ThemedText>
+            </Pressable>
           </View>
+        </View>
 
-          {/* Cast & Director */}
-          {(video.director || (video.cast && video.cast.length > 0)) && (
-            <View style={[styles.metaBox, { backgroundColor: colors.backgroundElement }]}>
-              {video.director && (
-                <View style={styles.metaBoxRow}>
-                  <ThemedText type="code" style={[styles.metaLabel, { color: colors.textSecondary }]}>Director</ThemedText>
-                  <ThemedText type="smallBold" style={styles.metaValue}>{video.director}</ThemedText>
-                </View>
-              )}
-              {video.cast && video.cast.length > 0 && (
-                <View style={styles.metaBoxRow}>
-                  <ThemedText type="code" style={[styles.metaLabel, { color: colors.textSecondary }]}>Cast</ThemedText>
-                  <ThemedText type="small" style={[styles.metaValue, { color: colors.textSecondary, flex: 1 }]} numberOfLines={2}>
-                    {video.cast.join(', ')}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Description with expand/collapse */}
-          <Pressable onPress={() => setDescExpanded((v) => !v)} style={[styles.descBox, { backgroundColor: colors.backgroundElement }]}>
-            <ThemedText type="small" style={{ color: colors.text, lineHeight: 19 }} numberOfLines={descExpanded ? undefined : 3}>
+        {/* Description */}
+        <View style={styles.section}>
+          <Pressable onPress={() => setDescExpanded((v) => !v)}>
+            <ThemedText
+              type="small"
+              style={{ color: colors.text, lineHeight: 20 }}
+              numberOfLines={descExpanded ? undefined : 3}
+            >
               {video.description}
             </ThemedText>
             <View style={styles.descToggle}>
-              {descExpanded ? <ChevronUp size={14} color={colors.textSecondary} /> : <ChevronDown size={14} color={colors.textSecondary} />}
-              <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>
-                {descExpanded ? 'Show less' : 'Show more'}
+              <ThemedText type="code" style={{ color: colors.accent, fontSize: 11 }}>
+                {descExpanded ? 'Show less' : 'Read more'}
               </ThemedText>
+              {descExpanded ? <ChevronUp size={12} color={colors.accent} /> : <ChevronDown size={12} color={colors.accent} />}
             </View>
           </Pressable>
         </View>
 
-        {/* Recommendations */}
+        {/* Cast */}
+        {video.cast && video.cast.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="smallBold" style={styles.sectionTitle}>Cast</ThemedText>
+            </View>
+            <FlatList
+              data={video.cast}
+              renderItem={renderCastItem}
+              keyExtractor={(item) => item}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.castList}
+            />
+            {video.director && (
+              <View style={styles.directorRow}>
+                <Film size={14} color={colors.textSecondary} />
+                <ThemedText type="small" style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Directed by <ThemedText type="smallBold" style={{ color: colors.text, fontSize: 12 }}>{video.director}</ThemedText>
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Info Grid */}
+        <View style={[styles.infoGrid, { backgroundColor: colors.backgroundElement }]}>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Genre</ThemedText>
+            <ThemedText type="smallBold" style={styles.infoValue}>{video.genre}</ThemedText>
+          </View>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Release</ThemedText>
+            <ThemedText type="smallBold" style={styles.infoValue}>{video.year || '—'}</ThemedText>
+          </View>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Duration</ThemedText>
+            <ThemedText type="smallBold" style={styles.infoValue}>{formatDuration(video.duration)}</ThemedText>
+          </View>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Quality</ThemedText>
+            <ThemedText type="smallBold" style={styles.infoValue}>{video.resolution}</ThemedText>
+          </View>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Rating</ThemedText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={styles.heroRatingBadge}>
+                <ThemedText type="code" style={styles.heroRatingText}>{video.rating || '—'}</ThemedText>
+              </View>
+            </View>
+          </View>
+          <View style={styles.infoItem}>
+            <ThemedText type="code" style={[styles.infoLabel, { color: colors.textSecondary }]}>Tier</ThemedText>
+            <View style={[styles.tierPill, { backgroundColor: video.tier === 'PREMIUM' ? '#e1ad01' : video.tier === 'BASIC' ? '#1565c0' : '#555' }]}>
+              <ThemedText type="code" style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{video.tier}</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* Available In */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <List size={15} color={colors.textSecondary} />
+            <ThemedText type="smallBold" style={styles.sectionTitle}>Available In</ThemedText>
+          </View>
+          <View style={styles.availRow}>
+            <View style={styles.availChip}>
+              <Volume2 size={12} color={colors.textSecondary} />
+              <ThemedText type="code" style={styles.availChipText}>English 5.1</ThemedText>
+            </View>
+            <View style={styles.availChip}>
+              <Subtitles size={12} color={colors.textSecondary} />
+              <ThemedText type="code" style={styles.availChipText}>English (CC)</ThemedText>
+            </View>
+            <View style={styles.availChip}>
+              <Languages size={12} color={colors.textSecondary} />
+              <ThemedText type="code" style={styles.availChipText}>Español, Français</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* Creator Channel */}
+        <View style={[styles.creatorChannel, { borderColor: colors.backgroundElement }]}>
+          <Image source={{ uri: video.creatorAvatar }} style={styles.creatorAvatar} />
+          <View style={styles.creatorMeta}>
+            <ThemedText type="smallBold" style={{ fontSize: 14 }}>{video.creatorName}</ThemedText>
+            <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 11 }}>124K subscribers</ThemedText>
+          </View>
+          <Pressable
+            onPress={() => setSubscribed((v) => !v)}
+            style={[styles.subBtn, { backgroundColor: subscribed ? colors.backgroundElement : colors.text }]}
+          >
+            <ThemedText type="code" style={{
+              color: subscribed ? colors.textSecondary : colors.background,
+              fontWeight: '700', fontSize: 11,
+            }}>
+              {subscribed ? 'Subscribed' : 'Subscribe'}
+            </ThemedText>
+          </Pressable>
+        </View>
+
+        {/* More Like This */}
         {recommendations.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="smallBold" style={styles.sectionHeading}>More Like This</ThemedText>
-            {recommendations.map((rec) => (
-              <Pressable
-                key={rec.id}
-                onPress={() => router.push(`/watch/${rec.id}`)}
-                style={[styles.recRow, { borderBottomColor: colors.backgroundElement }]}
-              >
-                <Image source={{ uri: rec.thumbnailUrl }} style={styles.recThumbnail} />
-                <View style={styles.recDetails}>
-                  <ThemedText type="smallBold" numberOfLines={2} style={{ fontSize: 13 }}>{rec.title}</ThemedText>
-                  <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
-                    {rec.creatorName}
-                  </ThemedText>
-                  <View style={styles.recMeta}>
-                    <View style={[styles.recTierPill, { backgroundColor: rec.tier === 'PREMIUM' ? '#e1ad01' : '#333' }]}>
-                      <ThemedText type="code" style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>{rec.tier}</ThemedText>
-                    </View>
-                    <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
-                      {formatViews(rec.views)} views
-                    </ThemedText>
-                  </View>
-                </View>
-              </Pressable>
-            ))}
+            <View style={styles.sectionHeader}>
+              <ThemedText type="smallBold" style={styles.sectionTitle}>More Like This</ThemedText>
+              <ChevronRight size={14} color={colors.textSecondary} />
+            </View>
+            <FlatList
+              data={recommendations}
+              renderItem={renderRecItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recList}
+            />
           </View>
         )}
 
         {/* Comments */}
         <View style={styles.section}>
-          <View style={styles.commentsSectionHeader}>
-            <MessageSquare size={16} color={colors.text} />
-            <ThemedText type="smallBold" style={styles.sectionHeading}>
+          <View style={[styles.sectionHeader, { marginBottom: 4 }]}>
+            <MessageSquare size={15} color={colors.textSecondary} />
+            <ThemedText type="smallBold" style={styles.sectionTitle}>
               Comments ({comments.length})
             </ThemedText>
           </View>
@@ -326,7 +467,7 @@ export default function WatchScreen() {
               placeholderTextColor={colors.textSecondary}
               value={commentText}
               onChangeText={setCommentText}
-              style={[styles.commentField, { color: colors.text, borderBottomColor: colors.backgroundElement }]}
+              style={[styles.commentField, { color: colors.text, borderColor: colors.backgroundElement }]}
               returnKeyType="send"
               onSubmitEditing={handlePostComment}
             />
@@ -337,7 +478,12 @@ export default function WatchScreen() {
             >
               {submittingComment
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <ThemedText type="code" style={{ color: commentText.trim() ? '#fff' : colors.textSecondary, fontWeight: '700', fontSize: 12 }}>Post</ThemedText>
+                : <ThemedText type="code" style={{
+                    color: commentText.trim() ? '#fff' : colors.textSecondary,
+                    fontWeight: '700', fontSize: 12,
+                  }}>
+                    Post
+                  </ThemedText>
               }
             </Pressable>
           </View>
@@ -347,7 +493,7 @@ export default function WatchScreen() {
               <View key={comm.id} style={styles.commentCard}>
                 {comm.isPinned && (
                   <View style={styles.pinnedBadge}>
-                    <ThemedText type="code" style={styles.pinnedText}>📌 Pinned by creator</ThemedText>
+                    <ThemedText type="code" style={styles.pinnedText}>Pinned by creator</ThemedText>
                   </View>
                 )}
                 <View style={styles.commentHeader}>
@@ -355,7 +501,7 @@ export default function WatchScreen() {
                   <View style={styles.commentUserMeta}>
                     <ThemedText type="smallBold" style={{ fontSize: 12 }}>{comm.username}</ThemedText>
                     <ThemedText type="code" style={{ color: colors.textSecondary, fontSize: 10 }}>
-                      {new Date(comm.createdAt).toLocaleDateString()}
+                      {formatDate(comm.createdAt)}
                     </ThemedText>
                   </View>
                 </View>
@@ -372,10 +518,10 @@ export default function WatchScreen() {
                 {comm.replies && comm.replies.map((rep) => (
                   <View key={rep.id} style={[styles.replyCard, { backgroundColor: colors.backgroundElement }]}>
                     <View style={styles.commentHeader}>
-                      <Image source={{ uri: rep.avatarUrl }} style={[styles.commentAvatar, { width: 24, height: 24, borderRadius: 12 }]} />
-                      <ThemedText type="smallBold" style={{ fontSize: 12 }}>{rep.username}</ThemedText>
+                      <Image source={{ uri: rep.avatarUrl }} style={[styles.commentAvatar, { width: 22, height: 22, borderRadius: 11 }]} />
+                      <ThemedText type="smallBold" style={{ fontSize: 11 }}>{rep.username}</ThemedText>
                     </View>
-                    <ThemedText type="small" style={[styles.commentBody, { color: colors.text, paddingLeft: 32 }]}>
+                    <ThemedText type="small" style={[styles.commentBody, { color: colors.text, paddingLeft: 28 }]}>
                       {rep.content}
                     </ThemedText>
                   </View>
@@ -396,67 +542,272 @@ const styles = StyleSheet.create({
   backBtn: { paddingVertical: 8, paddingHorizontal: Spacing.three, backgroundColor: '#e50914', borderRadius: 4 },
   scrollContent: { paddingBottom: 48 },
 
-  detailCard: { padding: Spacing.three, gap: Spacing.two },
-  title: { fontSize: 20, fontWeight: '800', lineHeight: 26 },
-
-  statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statText: { fontSize: 11 },
-  ratingBadge: {
-    borderWidth: 1, borderColor: '#555',
-    paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2,
+  // Hero Section
+  heroSection: {
+    padding: Spacing.three,
+    paddingBottom: Spacing.two,
+    gap: Spacing.three,
   },
-  ratingText: { fontSize: 9, fontWeight: '700', color: '#aaa' },
-  resBadge: { backgroundColor: '#333', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 },
-  resBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  posterRow: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  posterImage: {
+    width: POSTER_WIDTH,
+    height: POSTER_WIDTH * 1.5,
+    borderRadius: 8,
+    backgroundColor: '#1a1a2e',
+  },
+  heroInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  movieTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 24,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  heroMetaText: {
+    fontSize: 12,
+  },
+  heroRatingBadge: {
+    borderWidth: 1,
+    borderColor: '#555',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  heroRatingText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#aaa',
+  },
+  heroResBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#555',
+  },
 
-  chipRow: { flexDirection: 'row', gap: 6 },
-  tierChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  tierChipText: { color: '#fff', fontSize: 9, fontWeight: '900' },
-  genreChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: '#333' },
-  genreChipText: { fontSize: 10 },
-
+  // Action Buttons
   actionRow: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    paddingVertical: Spacing.two, borderTopWidth: 1, borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: Spacing.two,
   },
-  actionItem: { alignItems: 'center', gap: 4 },
-  actionText: { fontSize: 10 },
+  actionBtn: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  actionBtnText: { fontSize: 10 },
 
+  // Section
+  section: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    gap: Spacing.two,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  // Description
+  descToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 6,
+  },
+
+  // Cast
+  castList: {
+    gap: Spacing.three,
+    paddingRight: Spacing.three,
+  },
+  castItem: {
+    width: CAST_ITEM_WIDTH,
+    alignItems: 'center',
+    gap: 4,
+  },
+  castAvatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2a2a35',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  castName: {
+    fontSize: 10,
+    textAlign: 'center',
+    color: '#aaa',
+  },
+  directorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+
+  // Info Grid
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: Spacing.three,
+    borderRadius: 10,
+    padding: Spacing.two,
+    gap: 0,
+  },
+  infoItem: {
+    width: '33.33%',
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.two,
+    gap: 3,
+  },
+  infoLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: 12,
+  },
+  tierPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+    alignSelf: 'flex-start',
+  },
+
+  // Available In
+  availRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  availChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#1a1a25',
+    borderWidth: 1,
+    borderColor: '#2a2a35',
+  },
+  availChipText: {
+    fontSize: 10,
+    color: '#aaa',
+  },
+
+  // Creator Channel
   creatorChannel: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.two,
-    paddingVertical: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   creatorAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#333' },
   creatorMeta: { flex: 1 },
   subBtn: { paddingVertical: 7, paddingHorizontal: Spacing.three, borderRadius: 20 },
 
-  metaBox: { borderRadius: 8, padding: Spacing.two, gap: 6 },
-  metaBoxRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  metaLabel: { fontSize: 11, width: 60 },
-  metaValue: { fontSize: 12, flex: 1 },
+  // Recommendations
+  recList: {
+    gap: Spacing.two,
+    paddingRight: Spacing.three,
+  },
+  recCard: {
+    width: 130,
+    gap: 4,
+  },
+  recPoster: {
+    width: 130,
+    aspectRatio: 16 / 9,
+    borderRadius: 6,
+    backgroundColor: '#1a1a2e',
+  },
+  recTierBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  recTierText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  recTitle: {
+    fontSize: 12,
+  },
+  recMeta: {
+    fontSize: 9,
+    color: '#888',
+  },
 
-  descBox: { borderRadius: 8, padding: Spacing.two, gap: 4 },
-  descToggle: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
-
-  section: { padding: Spacing.three, gap: Spacing.two },
-  sectionHeading: { fontSize: 15, fontWeight: '800' },
-  commentsSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-
-  recRow: { flexDirection: 'row', gap: Spacing.two, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
-  recThumbnail: { width: 130, aspectRatio: 16 / 9, borderRadius: 6, backgroundColor: '#1a1a2e' },
-  recDetails: { flex: 1, justifyContent: 'center', gap: 3 },
-  recMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  recTierPill: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 3 },
-
-  commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginBottom: 4 },
+  // Comments
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginBottom: 4,
+  },
   commentInputAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#333' },
-  commentField: { flex: 1, height: 40, borderBottomWidth: 1, fontSize: 13, paddingBottom: 4 },
-  commentPostBtn: { paddingVertical: 7, paddingHorizontal: Spacing.two, borderRadius: 6, minWidth: 44, alignItems: 'center' },
-
+  commentField: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    fontSize: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  commentPostBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 6,
+    minWidth: 44,
+    alignItems: 'center',
+  },
   commentsList: { gap: Spacing.three },
   commentCard: { gap: 6 },
-  pinnedBadge: { paddingHorizontal: 8, paddingVertical: 2, backgroundColor: 'rgba(229,9,20,0.1)', borderRadius: 4, alignSelf: 'flex-start' },
+  pinnedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(229,9,20,0.1)',
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
   pinnedText: { color: '#e50914', fontSize: 10 },
   commentHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   commentAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#333' },
